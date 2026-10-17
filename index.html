@@ -2385,7 +2385,7 @@ function drawPlayer(c,p,opts){
     else { segO(o,sl,9*LW); segO(o,e,6.6*LW); segO(e,h,5.4*LW);
     segF(o,e,6.6*LW,sk,dark?null:skinL); segF(e,h,5.4*LW,sk,dark?null:skinL); segF(o,sl,9*LW,dark?shade(K.body,-0.25):K.body); }
     if(wb.id!=='none'){ const w0={x:lerp(e.x,h.x,0.72),y:lerp(e.y,h.y,0.72)}, w1={x:lerp(e.x,h.x,0.9),y:lerp(e.y,h.y,0.9)}; flat(w0,w1,6.6*LW,dark?shade(cosColor('wrist',p),-0.25):cosColor('wrist',p)); }
-    c.fillStyle=sk; c.strokeStyle=OL; c.lineWidth=1.2; c.beginPath(); c.ellipse(h.x,h.y,3.6*s*LW,3.2*s,A[0]+A[1],0,7); c.fill(); c.stroke();
+    if(typeof drawHand18==='function'&&!opts.ghost) drawHand18(c,p,P,h,e,s,LW,sk,OL,dark); else { c.fillStyle=sk; c.strokeStyle=OL; c.lineWidth=1.2; c.beginPath(); c.ellipse(h.x,h.y,3.6*s*LW,3.2*s,A[0]+A[1],0,7); c.fill(); c.stroke(); }
     return h;
   };
   drawArm(P.arms[1],-3,true); drawLeg(P.legs[1],true);
@@ -8645,8 +8645,8 @@ function sceneTinyAce(){
     CS.actors={tiny:csActor(findPlayer('zx_hayate'),kitA,NET_X-250,1),lib:csActor(findPlayer('zx_manta'),kitA,NET_X-420,1),set:csActor(findPlayer('zx_kaname'),kitA,NET_X-60,1),
       spk:csActor(GARO,kitB,NET_X+260,-1),bl:csActor(findPlayer('zx_kurogane'),kitB,NET_X+60,-1),trail:[]}; CS.actors.lib.def=Object.assign({},CS.actors.lib.def,{role:'L'}); };
   S.draw=(c,T,dt)=>{ if(bgDirty) renderBG(); const t=slowT(T,1.1,1.9,0.35), A=CS.actors, tiny=A.tiny, lib=A.lib, set=A.set, spk=A.spk;
-    let z=1.25, cx=NET_X-60, cy=FLOOR-260; if(T>1.1&&T<1.9){ z=1.9; cx=NET_X-240; cy=FLOOR-170; } else if(T>3.05&&T<3.8){ z=2.1; cx=NET_X-110; cy=FLOOR-420; } else if(T>=3.8){ z=1.5; cx=NET_X-120; cy=FLOOR-300; }
-    S._z=(S._z||1.2)+(z-(S._z||1.2))*Math.min(1,dt*5); S._cx=(S._cx||cx)+(cx-(S._cx||cx))*Math.min(1,dt*5); S._cy=(S._cy||cy)+(cy-(S._cy||cy))*Math.min(1,dt*5);
+    let z=1.25, cx=NET_X-60, cy=FLOOR-260, rate=5; if(T>1.1&&T<1.9){ z=1.9; cx=NET_X-240; cy=FLOOR-170; } else if(T>3.0&&T<3.3){ z=3.0; cx=NET_X-150; cy=FLOOR-A.set.h-150; rate=22; } else if(T>=3.3&&T<3.46){ z=1.1; cx=NET_X-90; cy=FLOOR-280; rate=24; } else if(T>=3.46&&T<3.8){ z=2.2; cx=NET_X-100; cy=FLOOR-430; rate=18; } else if(T>=3.8){ z=1.5; cx=NET_X-120; cy=FLOOR-300; }
+    S._z=(S._z||1.2)+(z-(S._z||1.2))*Math.min(1,dt*rate); S._cx=(S._cx||cx)+(cx-(S._cx||cx))*Math.min(1,dt*rate); S._cy=(S._cy||cy)+(cy-(S._cy||cy))*Math.min(1,dt*rate);
     const sk=(t>0.95&&t<1.1)||(t>2.98&&t<3.2)?(Math.random()-0.5)*10:0; csCam(c,t,S._z,S._cx+sk,S._cy);
     drawCrowd(c,performance.now()/1000); drawNet(c,0,false);
     // opponent spiker: approach and hit at t=0.9
@@ -8685,13 +8685,13 @@ function sceneTinyAce(){
 
 /* ---------------- scene: the out-of-bounds back spike ---------------- */
 function sceneBackSpike(){
-  const S={minT:5.6,lineDelay:4.8,lines:[['commentator','That ball was GONE — out of bounds, behind the end line!'],['commentator','Kiriga chased it down, jumped OUT of the court, and back-spiked it over his own head!'],['wl_raizo','Out? Says who?'],['you','He was facing the wrong way… and it still landed.']]};
+  const S={minT:3.9,lineDelay:2.4,lines:[['commentator','That ball was GONE — out of bounds, behind the end line!'],['commentator','Kiriga chased it down, jumped OUT of the court, and back-spiked it over his own head!'],['wl_raizo','Out? Says who?'],['you','He was facing the wrong way… and it still landed.']]};
   S.init=()=>{ const kA=findTeam('reapers'), kB=findTeam('kings');
     CS.restoreArena=CS.restoreArena||game.arena; game.arena='worldfinal'; bgDirty=true; buildCrowd();
     CS.actors={rz:csActor(RAIZO,kA,NET_X-220,1),dg:csActor(findPlayer('zx_sena'),kA,NET_X-420,1),opp:csActor(findPlayer('zx_ryker'),kB,NET_X+150,-1),o2:csActor(findPlayer('zx_haku'),kB,NET_X+380,-1),trail:[]}; };
-  S.draw=(c,T,dt)=>{ if(bgDirty) renderBG(); const t=slowT(T,1.75,2.55,0.3), A=CS.actors, rz=A.rz, dg=A.dg, op=A.opp;
-    const outX=COURT_L-80, ex=view.x0||0; let z=1.2, cx=NET_X-200, cy=FLOOR-260; if(T>0.9&&T<1.55){ z=1.5; cx=ex; cy=FLOOR-200; } if(T>=1.55&&T<2.6){ z=2.2; cx=ex; cy=FLOOR-rz.h-120; } if(T>=2.6){ z=1.1; cx=NET_X-80; cy=FLOOR-240; }
-    S._z=(S._z||1.2)+(z-(S._z||1.2))*Math.min(1,dt*4.5); S._cx=(S._cx||cx)+(cx-(S._cx||cx))*Math.min(1,dt*4.5); S._cy=(S._cy||cy)+(cy-(S._cy||cy))*Math.min(1,dt*4.5);
+  S.draw=(c,T,dt)=>{ if(bgDirty) renderBG(); const t=T*1.7, A=CS.actors, rz=A.rz, dg=A.dg, op=A.opp;
+    const outX=COURT_L-80, ex=view.x0||0; let z=1.2, cx=NET_X-200, cy=FLOOR-260; if(t>0.9&&t<1.55){ z=1.5; cx=ex; cy=FLOOR-200; } if(t>=1.55&&t<2.6){ z=2.3; cx=ex; cy=FLOOR-rz.h-120; } if(t>=2.6){ z=1.1; cx=NET_X-80; cy=FLOOR-240; }
+    S._z=(S._z||1.2)+(z-(S._z||1.2))*Math.min(1,dt*12); S._cx=(S._cx||cx)+(cx-(S._cx||cx))*Math.min(1,dt*12); S._cy=(S._cy||cy)+(cy-(S._cy||cy))*Math.min(1,dt*12);
     csCam(c,t,S._z,S._cx,S._cy); drawCrowd(c,performance.now()/1000); drawNet(c,0,false);
     // opponent attack, our libero shanks it out of bounds
     if(jumpArc(op,t,0.0,0.8,op.jumpH)){ op.airIntent='attack'; if(t>0.32&&t<0.5&&op.state!=='spike'){ op.setState('spike'); op.swingT=0.28; } else if(op.state!=='spike') op.setState('jump'); }
@@ -8712,7 +8712,8 @@ function sceneBackSpike(){
     if(t>0.75&&t<1.55) csText(c,'OUT!',COURT_L-60,FLOOR-380,50,'#f87171');
     if(t>1.98&&t<2.45){ csLines(c,rzHit[0],rzHit[1],'#f9a8d4',1-(t-1.98)/0.47); csText(c,'場外!!',outX+10,FLOOR-rz.h-300,52,'#f472b6'); }
     if(t>1.6&&t<1.98) csText(c,'heh.',rz.x-40,FLOOR-rz.h-120,30,'#fde047');
-    if(t>2.4&&t<3.7) csText(c,'BACK SPIKE · OUT OF BOUNDS',NET_X,FLOOR-560,40,'#fde68a',{a:Math.min(1,(t-2.35)*2)});
+    if(t>1.9&&t<2.6){ c.save(); c.strokeStyle='rgba(255,255,255,.55)'; c.lineWidth=2; for(let i=0;i<14;i++){ const yy=FLOOR-600+i*40+((T*900+i*57)%40); c.beginPath(); c.moveTo(rzHit[0]+60,yy); c.lineTo(rzHit[0]+260+rand(0,160),yy); c.stroke(); } c.restore(); }
+    if(t>2.4&&t<4.6) csText(c,'BACK SPIKE · OUT OF BOUNDS',NET_X,FLOOR-560,40,'#fde68a',{a:Math.min(1,(t-2.35)*2)});
   };
   return S; }
 /* reverse-swing pose for the back spike */
@@ -9800,7 +9801,9 @@ stepPlayer=function(p){
   aiVariantArm16(p);
   /* facing: turn around when running away from the net */
   let tgt=p.dir;
-  if(p.onGround&&p.state!=='dive'&&p.state!=='toss'&&!(game.state==='SERVE'&&game.server===p)&&Math.abs(p.vx)>80&&Math.sign(p.vx)!==Math.sign(p.dir)){
+  const wantAway=p.ctrl==='human'?(((KS(p).right?1:0)-(KS(p).left?1:0))===-Math.sign(p.dir)):(Math.sign(p.wantVx||0)===-Math.sign(p.dir)&&Math.abs(p.wantVx||0)>150);
+  const justLanded=p._land17!=null&&game.time-p._land17<0.7;
+  if(wantAway&&!justLanded&&!p.ko18&&p.onGround&&['run','idle'].includes(p.state)&&!(game.state==='SERVE'&&game.server===p)&&Math.abs(p.vx)>80&&Math.sign(p.vx)!==Math.sign(p.dir)){
     const near=ball.live&&sideOf(ball.x)===p.side&&Math.abs(ball.x-p.x)<230&&ball.vy>0&&ball.y>FLOOR-430;
     if(!near) tgt=-p.dir; }
   if(p.faceS==null) p.faceS=p.dir; const r=(p.onGround?11:16)*DT; p.faceS+=clamp(tgt-p.faceS,-r,r);
@@ -10044,6 +10047,427 @@ stepPlayer=function(p){ const g=p.onGround, st=p.state; _sp17(p);
     else if(ball.live&&sideOf(ball.x)===p.side&&Math.abs(ball.x-p.x)<150&&ball.y>FLOOR-380) k=0;
     if(p.laneK==null) p.laneK=1; const r=4*DT; p.laneK+=clamp(k-p.laneK,-r*1.6,r); }catch(e){} };
 
+</script>
+<script>
+'use strict';
+/* =========================================================================
+   v18 — Manor High (Ethan, Grant, Bubba), Sora the 3'9" libero, Raizo
+   rework, liberos can set, libero heights 4'1"–7'0", the BOOM SPIKE
+   ========================================================================= */
+const ftIn=cm=>{ const t=Math.round(cm/2.54); return Math.floor(t/12)+'\''+(t%12)+'"'; };
+
+/* ---------------- MANOR HIGH (all American) ---------------- */
+const ETHAN=proDef({id:'mh_ethan',name:'Ethan',num:10,role:'MB',cm:191,st:[10,7,6,5,5,8,7,9],hair:'h102',hc:'#e9c25a',skin:SKIN[3],eyes:'#3f2a1d',
+  sp:{type:'dump',name:'PLAYGROUND TIP',emoji:'😜',jp:'いたずら!'},pas:['Feint Master','Tall Reach'],quote:'"Wait wait wait— watch this one. WATCH."',nat:'US',build:'stocky',persona:'hype'});
+Object.assign(ETHAN,{pro:false,team:'manor',eyeStyle:'round',mouth:'grin',brow:'raised',anim:{celeb:'bounce2',idle:'bounce'},hairDye:'none'});
+const GRANT=proDef({id:'mh_grant',name:'Grant',num:6,role:'WS',cm:185,st:[10,10,8,6,5,8,7,8],hair:'h132',hc:'#1c1410',skin:SKIN[4],eyes:'#2b1a10',
+  sp:{type:'cannon',name:'BOOM SPIKE',emoji:'💥',jp:'ドカン!!',boom:true},pas:['Springheel','Cannon Arm'],quote:'"We go up together. Then I hit it."',nat:'US',build:'athletic',persona:'loyal'});
+Object.assign(GRANT,{pro:false,team:'manor',eyeStyle:'sharp',brow:'straight',anim:{celeb:'chestpound'},auraFx:'kiburst',auraCol:'#f97316',faceHitter:true});
+const BUBBA=proDef({id:'mh_bubba',name:'Bubba',num:5,role:'WS',cm:180,st:[7,5,5,10,8,6,7,9],hair:'h087',hc:'#4b3621',skin:SKIN[0],eyes:'#475569',
+  sp:{type:'cut',name:'TEXTBOOK CUT',emoji:'📐',jp:'教科書!'},pas:['Guardian','Tool Master'],quote:'"Good platform. Good feet. Good ball."',nat:'US',build:'compact',persona:'calm'});
+Object.assign(BUBBA,{pro:false,team:'manor',eyeStyle:'sleepy',anim:{celeb:'shrug'}});
+const LARRY=proDef({id:'mh_larry',name:'Larry',num:1,role:'S',cm:183,st:[6,7,7,7,10,7,10,10],hair:'h123',hc:'#1a120c',skin:SKIN[3],eyes:'#3f2a1d',
+  sp:{type:'tempo',name:'ANYWHERE SET',emoji:'🎯',jp:'どこでも!'},pas:['Setter Eye','Floater'],quote:'"Wherever you are, the ball is already there."',nat:'US',build:'athletic',persona:'cool'});
+Object.assign(LARRY,{pro:false,team:'manor',eyeStyle:'sharp',brow:'straight',stache:true});
+const ENRIQUE=proDef({id:'mh_enrique',name:'Enrique',num:12,role:'L',cm:141,st:[5,7,10,10,7,2,8,8],hair:'h088',hc:'#3b2416',skin:SKIN[1],eyes:'#3f2a1d',
+  sp:{type:'guardian',name:'GOALKEEPER',emoji:'⚽',jp:'守護神'},pas:['Diving Range','Rocket Start'],quote:'"Feet, hands, face — whatever gets it up."',nat:'US',build:'compact',persona:'hype'});
+Object.assign(ENRIQUE,{pro:false,team:'manor',eyeStyle:'round',cosDefault:{headband:'black'},soccer:true});
+const MANOR_IDS=['mh_larry','mh_ethan','mh_grant','mh_bubba','mh_enrique'];
+const MANOR={id:'manor',name:'MANOR HIGH',mascot:'Manor',jp:'マナー',c1:'#111111',c2:'#dc2626',c3:'#7f1d1d',home:'school',style:{POWER:34,LINE:18,CROSS:20,FEINT:18,SPECIAL:16},players:[GRANT,ETHAN,LARRY,BUBBA,ENRIQUE]};
+(function(){ const i=TEAMS.findIndex(x=>x.custom); if(i<0) TEAMS.push(MANOR); else TEAMS.splice(i,0,MANOR); })();
+/* the Manor five are the new World Five (the old five stay findable for old saves) */
+(function(){ try{ const old=WORLD_FIVE.players.slice(); TEAMS.push({id:'worldfive_old',name:'WORLD FIVE (CLASSIC)',mascot:'All-Stars',jp:'世界',c1:'#facc15',c2:'#111827',c3:'#111827',home:'apex_stadium',hidden:true,style:WORLD_FIVE.style,players:old});
+  WORLD_FIVE.players=[GRANT,ETHAN,LARRY,BUBBA,ENRIQUE].map(d=>Object.assign({},d,{team:'worldfive'})); Object.assign(WORLD_FIVE,{name:'WORLD FIVE',mascot:'Manor',c1:'#111111',c2:'#dc2626',c3:'#7f1d1d'});
+  if(typeof BENCH_CACHE!=='undefined') delete BENCH_CACHE.worldfive; }catch(e){ console.error(e); } })();
+/* Grant switches between two-strand twists and a curly top with a taper */
+const _bm18=beginMatch; beginMatch=function(cfg){ try{ const h=Math.random()<0.6?'h132':'h123'; GRANT.hair=h; for(const t of TEAMS) for(const d of t.players||[]) if(d&&d.id==='mh_grant') d.hair=h; }catch(e){} return _bm18(cfg); };
+
+/* ---------------- Sora: the 3'9" libero (best in the game, all-rounder) ---------------- */
+const SORA=proDef({id:'wl_sora',name:'Sora Kotobuki',num:1,role:'L',cm:114,st:[4,9,10,10,9,3,8,10],hair:'h014',hc:'#0f172a',dye:'tips',hc2:'#38bdf8',skin:SKIN[1],eyes:'#0ea5e9',
+  sp:{type:'guardian',name:'POCKET WALL',emoji:'🛡️',jp:'小さな壁'},pas:['Guardian','Diving Range'],quote:'"Look down. I\'m already there."',nat:'JP',build:'compact',persona:'calm'});
+Object.assign(SORA,{eyeStyle:'sparkle',libAtk:true,auraFx:'holywings',auraCol:'#7dd3fc',anim:{celeb:'bounce2'}});
+/* Raizo: right-side hitter, ambidextrous, super quick, cat-like slit eyes */
+Object.assign(RAIZO,{role:'OP',ambi:true,eyeStyle:'slit',passives:['Lefty','Quick Feet'],stats:Object.assign({},RAIZO.stats,{PWR:10,SPD:10,JMP:10,IQ:9})});
+const WL_STARS={id:'wlstars',name:'WORLD LEAGUE STARS',mascot:'Stars',jp:'世界',c1:'#111827',c2:'#f472b6',c3:'#facc15',home:'national',pro:true,style:{POWER:34,LINE:20,CROSS:22,FEINT:12,SPECIAL:16},players:[RAIZO,GARO,SORA]};
+(function(){ const i=TEAMS.findIndex(x=>x.custom); if(i<0) TEAMS.push(WL_STARS); else TEAMS.splice(i,0,WL_STARS); try{ PRO_IDS.push('wl_sora'); }catch(e){} })();
+(function(){ const fp=findPlayer, map={mh_ethan:ETHAN,mh_grant:GRANT,mh_bubba:BUBBA,mh_larry:LARRY,mh_enrique:ENRIQUE,wl_sora:SORA}; findPlayer=function(id){ if(map[id]) return map[id]; return fp(id); }; })();
+try{ ALLROUND_IDS.add('wl_sora'); }catch(e){}
+try{ Object.assign(BIO,{
+  mh_ethan:[18,'Ethan is the biggest kid on the Manor High court and easily the most childish: he narrates his own highlights out loud, celebrates tips like game winners and argues with the ball when he misses. Underneath the jokes is one of the sharpest eyes in the gym. He sees the open spot before anyone else does, and when he decides to swing instead of tip, the ball comes down heavy.'],
+  mh_grant:[17,'Grant jumps out of the gym and blocks like a wall, but everyone at Manor High knows him for one thing: the Boom Spike. The first time he really caught one clean, the guy who dug it stayed on the floor for five seconds. For all that power he\'s a pure team player. He lifts everyone up, then he hits the ball through the floor.'],
+  mh_bubba:[17,'Bubba isn\'t the fastest or the highest jumper, and he knows it. What he has is form: the cleanest platform at Manor High, hands good enough to set, and a spiking motion so textbook that coaches film it. His hair covers his eyes and he still reads every serve.'],
+  mh_larry:[17,'Larry runs Manor High from the setter spot, and he is very, very smart about it. He can put the ball anywhere: off a bad pass, on the run, from the floor. He\'s an okay hitter, an alright jumper and blocker, and a nightmare at the service line, mixing floaters that dance with fast ones that skip off the tape.'],
+  mh_enrique:[17,'Enrique is about 4\'7" and the second best libero in the game. His best sport is soccer, and it shows: he reads the ball like a keeper, moves faster than anyone on the floor and will dig with whatever reaches first. He can jump serve and float serve, and he collects digs like trophies.'],
+  wl_sora:[19,'Sora Kotobuki is 3\'9" and the best libero in the world. Scouts laughed at him until they tried to hit a ball past him. He passes, sets, serves and even spikes, with perfect form and just enough jump to clear the tape. Nothing gets to the floor while he\'s on it.']}); }catch(e){}
+try{ ETHAN.age=18; }catch(e){}
+
+/* ---------------- BOOM SPIKE: explodes, knocks the digger down ---------------- */
+const _da18=doAttack;
+doAttack=function(p,kind){ _da18(p,kind);
+  try{ if(kind!=='SPECIAL'||!p.def.special||!p.def.special.boom||!ball.live) return;
+    ball.vx*=1.18; ball.vy*=1.18; ball.boom18=p; ball.heavy=true; ball.trailCols=['#fff7ed','#f97316','#7c2d12'];
+    fx.ring(ball.x,ball.y,'#f97316',160); fx.burst(ball.x,ball.y,'#fde68a',24,520); try{ fx.shake(14); fx.flash('#fff7ed',0.5); }catch(e){}
+    fx.text(p.x,p.y-p.h-80,'💥 BOOM SPIKE','#fb923c',30); }catch(e){ console.error(e); } };
+function boomBlast18(x,y){ fx.ring(x,y,'#f97316',220); fx.ring(x,y,'#fde68a',140); fx.burst(x,y,'#f97316',36,640); fx.burst(x,y,'#ffffff',20,420); fx.dust(x,FLOOR,26);
+  try{ fx.shake(18); fx.flash('#fed7aa',0.6); }catch(e){} fx.text(x,y-70,'B O O M','#fb923c',40); try{ sfx.block(); sfx.land(); }catch(e){} }
+const _dig18=doDig;
+doDig=function(p,z){ const B=ball.boom18, from=B&&B.side!==p.side; _dig18(p,z);
+  try{ if(!from) return; ball.boom18=null; boomBlast18(p.x,p.y-p.h*0.5);
+    p.onGround=false; p.vy=-rand(300,380)*VS; p.vx=-p.dir*rand(620,800); p.setState('blown'); p.blownT=1.0; p.ko18=3.2; p.recoverT=Math.max(p.recoverT,4.2); p.airIntent=null; p.jumpAt=-1;
+    fx.text(p.x,p.y-p.h-50,'KNOCKED DOWN!','#fca5a5',24);
+    if(ball.live){ launchTo(ball,NET_X-p.dir*rand(200,380),FLOOR-120,FLOOR-rand(560,660),1); ball.lastSide=p.side; ball.over=false; ball.blockChecked=true; } }catch(e){ console.error(e); } };
+const _ap18=awardPoint; awardPoint=function(w,r){ try{ if(ball.boom18&&(r==='KILL'||r==='ACE')){ const x=game.landMark?game.landMark.x:ball.x; boomBlast18(x,FLOOR-20); for(const o of team(opp(ball.boom18.side)).players) if(Math.abs(o.x-x)<120&&o.onGround){ o.setState('blown'); o.onGround=false; o.vy=-260*VS; o.vx=Math.sign(o.x-x||1)*420; o.blownT=0.8; o.ko18=1.5; } } ball.boom18=null; }catch(e){} return _ap18(w,r); };
+/* knocked-down players lie on the floor for a while */
+const _sp18=stepPlayer; stepPlayer=function(p){ _sp18(p); if(p.ko18>0){ if(p.onGround&&p.state!=='blown'){ p.ko18-=DT; p.wantVx=0; p.vx*=0.9; if(p.state!=='recover') p.setState('recover'); p.recoverT=Math.max(p.recoverT,0.05); if(p.ko18<=0){ p.ko18=0; p.recoverT=0.2; } } } };
+const _pf18=poseFor; poseFor=function(p,t){ if(p&&p.ko18>0&&p.onGround&&p.state==='recover') return {lean:0,drop:0,legs:[[1.4,0.3],[1.2,0.5]],arms:[[2.6,0.3],[1.9,0.6]],rot:1.45,head:-0.3,mouth:1}; return _pf18(p,t); };
+
+/* ---------------- LIBEROS ---------------- */
+/* liberos can set: they take some second balls and set from behind the 3 m line (legal) */
+const _pt18=passTarget;
+passTarget=function(p){ const m=_pt18(p); try{ const T=team(p.side); const L=T.players.find(q=>q.def.role==='L'&&q!==p&&!isH(q)&&q.recoverT<=0&&q.onGround);
+    if(L&&!isH(m)&&(m===p||m.def.role==='S'&&Math.random()<0.22+(L.s.SET-5)*0.04)){ L._libSet=true; return L; } }catch(e){} return m; };
+const _dp18=doPass; doPass=function(p,z,err){ _dp18(p,z,err); try{ const T=team(p.side), m=T.next; if(m&&m._libSet&&ball.live){ m._libSet=false; const tx=NET_X-p.dir*rand(240,290); launchTo(ball,tx,FLOOR-m.h*1.05,FLOOR-rand(330,380)*VS,1); fx.text(m.x,m.y-m.h-40,'LIBERO SET','#a5f3fc',14); } }catch(e){} };
+/* better liberos: steadier passes, longer dive reach for the tall ones */
+const _dq18=digQuality; digQuality=function(p,z){ let q=_dq18(p,z); if(p&&p.def.role==='L'&&q<1) q=Math.min(0.97,q+0.05); return q; };
+/* Sora (and only Sora) may attack as a libero */
+if(typeof ruleFault==='function'){ const _rf18=ruleFault; ruleFault=function(p,code){ if(p&&p.def&&p.def.libAtk&&(code==='LIBATK'||code==='LIBSET')) return false; return _rf18(p,code); }; }
+/* generated liberos get heights from 4'1" to 7'0" */
+const _bo18=benchOf; benchOf=function(id){ const L=_bo18(id); for(const d of L) if(d.role==='L'&&!d._h18){ const R=seeded(hash14(d.id)+31); d.cm=Math.round(124+Math.pow(R(),0.9)*89); d._h18=1; } return L; };
+for(const k of Object.keys(BENCH_CACHE)) benchOf(k);
+/* studio: libero height slider 124–213 cm, shown in feet too */
+const _edp18=edPanel; edPanel=function(){ _edp18(); try{ const r=$('fCm'); if(!r) return; const d=edDef(); if(!d) return; const L=d.role==='L'; r.min=L?124:155; r.max=L?213:205; const v=$('fCmV'); const up=()=>{ if(v) v.textContent=r.value+' cm · '+ftIn(+r.value); }; up(); r.addEventListener('input',up); }catch(e){} };
+/* cards show feet + inches */
+if(typeof cardHTML==='function'){ const _ch18=cardHTML; cardHTML=function(d,...a){ let h=_ch18(d,...a); try{ if(d&&d.cm&&typeof h==='string') h+=`<div class="text-[10px] text-slate-400">📏 ${d.cm} cm · ${ftIn(d.cm)}</div>`; }catch(e){} return h; }; }
+
+/* ---------------- ambidextrous hitters swap arms every swing ---------------- */
+const _da18b=doAttack; doAttack=function(p,kind){ if(p&&p.def&&p.def.ambi){ p.ambiL=!p.ambiL; } return _da18b(p,kind); };
+</script>
+<script>
+'use strict';
+/* =========================================================================
+   v18 — animation pass: one clean spike sequence (no spins, no drifting off
+   the net), better run / set / bump, slide-recover turns, real hands
+   ========================================================================= */
+const E18=k=>k<0.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
+const L18=(a,b,k)=>a+(b-a)*k;
+
+/* ---------------- poses ---------------- */
+const _pf18b=poseFor;
+poseFor=function(p,t){ let P=_pf18b(p,t);
+  try{ if(!p||!P||p.state==='blown'||p.ko18>0||p.csBack) return P;
+    const st=p.state, air=!p.onGround;
+    /* SPIKE: approach arms back → takeoff arms up → bow-and-arrow → whip → follow-through → land */
+    if((air&&p.airIntent==='attack')||(st==='spike'&&air)){
+      const v0=p.v0?p.v0(p.leapJump)||1:900, r=clamp((p.vy||0)/v0,-1,1);
+      if(st==='spike'){ const sw=Math.max(0.0001,p._swMax||0.28), k=clamp(1-(p.swingT||0)/sw,0,1), e=E18(k);
+        // hitting arm: cocked behind the head → straight up at contact (k≈.35) → across the body
+        const a0=k<0.35?L18(4.1,3.1,k/0.35):L18(3.1,0.85,(k-0.35)/0.65), el=k<0.35?L18(1.7,0.05,k/0.35):L18(0.05,0.45,(k-0.35)/0.65);
+        P={lean:L18(-0.36,0.42,e),drop:0,legs:[[L18(-0.1,0.65,e),L18(1.5,0.55,e)],[L18(-0.35,0.35,e),L18(1.3,0.75,e)]],
+           arms:[[a0,el],[L18(2.7,0.55,e),L18(0.15,0.9,e)]],rot:0,head:L18(-0.3,0.12,e),mouth:1};
+      } else if(r<-0.55){ P={lean:0.06,drop:0,legs:[[0.05,0.12],[-0.12,0.22]],arms:[[3.0,0.18],[2.9,0.2]],rot:0,head:-0.22,mouth:0}; }
+      else if(r<-0.12){ const k=(r+0.55)/0.43; P={lean:L18(0.06,-0.3,k),drop:0,legs:[[L18(0.05,0.0,k),L18(0.12,1.35,k)],[L18(-0.12,-0.3,k),L18(0.22,1.15,k)]],arms:[[L18(3.0,4.05,k),L18(0.18,1.65,k)],[L18(2.9,2.75,k),L18(0.2,0.12,k)]],rot:0,head:-0.28,mouth:0}; }
+      else if(r<0.3){ P={lean:-0.38,drop:0,legs:[[-0.12,1.55],[-0.36,1.35]],arms:[[4.12,1.72],[2.72,0.12]],rot:0,head:-0.3,mouth:1}; }
+      else { P={lean:0.12,drop:0,legs:[[0.3,0.32],[0.05,0.45]],arms:[[1.25,0.45],[0.95,0.5]],rot:0,head:0.02,mouth:0}; }
+      if(p.def&&p.def.ambi&&p.ambiL) P.arms=[P.arms[1],P.arms[0]];
+      return P; }
+    if(st==='spike'&&!air){ const k=clamp(1-(p.swingT||0)/0.28,0,1), e=E18(k); return {lean:L18(-0.1,0.4,e),drop:10,legs:[[0.55,1.1],[0.0,0.75]],arms:[[L18(3.9,0.9,e),L18(1.4,0.2,e)],[L18(2.6,0.6,e),0.4]],rot:0,head:0.05,mouth:1}; }
+    /* SLIDE RECOVER */
+    if(p.slideT>0){ return {lean:-0.32,drop:24,legs:[[-0.75,0.35],[0.95,1.75]],arms:[[1.75,0.35],[0.85,0.7]],rot:0,head:-0.1,mouth:1}; }
+    /* RUN: knee drive, bent-arm pump, lean with speed */
+    if(st==='run'&&!p.deco||st==='run'&&p.deco&&!p.celebT){ const ph=p.runPhase||0, a=Math.sin(ph), b=Math.sin(ph+Math.PI), sp=clamp(Math.abs(p.vx||0)/(p.maxSpeed||400),0.35,1.3);
+      const knee=x=>0.35+Math.max(0,-x)*1.75*sp+Math.max(0,x)*0.25;
+      return {lean:0.18+0.2*sp+Math.sin(ph*2)*0.025,drop:2-Math.abs(Math.cos(ph))*6*sp,legs:[[a*1.05*sp+0.2,knee(a)],[b*1.05*sp+0.2,knee(b)]],
+        arms:[[b*1.15*sp+0.35,1.55-Math.max(0,b)*0.35],[a*1.15*sp+0.35,1.55-Math.max(0,a)*0.35]],rot:0,head:-0.06,mouth:sp>1.05?1:0}; }
+    /* SET: hands load at the forehead, then extend through the ball */
+    if(st==='set'){ const k=clamp(1-(p.swingT||0)/0.25,0,1), e=E18(k), j=air?1:0;
+      return {lean:L18(-0.02,-0.1,e),drop:j?0:L18(14,4,e),legs:j?[[0.25,0.6],[-0.1,0.5]]:[[L18(0.5,0.18,e),L18(1.05,0.3,e)],[L18(-0.2,-0.08,e),L18(0.85,0.25,e)]],
+        arms:[[L18(2.68,3.12,e),L18(1.7,0.15,e)],[L18(2.6,3.05,e),L18(1.75,0.2,e)]],rot:0,head:L18(-0.32,-0.38,e),mouth:0}; }
+    /* BUMP: straight platform, legs do the work */
+    if(st==='bump'&&!air){ const k=clamp(1-(p.swingT||0)/0.25,0,1), e=E18(k);
+      return {lean:L18(0.55,0.4,e),drop:L18(20,12,e),legs:[[L18(0.85,0.6,e),L18(1.5,1.1,e)],[L18(-0.35,-0.25,e),L18(1.15,0.85,e)]],arms:[[L18(0.95,1.2,e),0.0],[L18(0.98,1.22,e),0.0]],rot:0,head:-0.12,mouth:0}; }
+  }catch(e){}
+  return P; };
+/* remember the length of each swing so the whip lines up with contact */
+const _da18c=doAttack; doAttack=function(p,kind){ _da18c(p,kind); try{ p._swMax=Math.max(0.2,p.swingT||0.28); }catch(e){} };
+
+/* ---------------- the real flip bug: the pose spring exploded on long frames ----------------
+   (slow PCs, cutscenes). Split long frames into 1/120 s steps and reset if anything runs away. */
+const _spr18=springPose;
+springPose=function(p,tgt,dt){ let P; const n=Math.max(1,Math.min(8,Math.ceil((dt||0.016)/(1/120)))), h=(dt||0.016)/n;
+  for(let i=0;i<n;i++) P=_spr18(p,tgt,h);
+  try{ const bad=v=>!isFinite(v)||Math.abs(v)>12; if(P&&(bad(P.lean)||bad(P.rot)||P.legs.some(l=>l.some(bad))||P.arms.some(l=>l.some(bad)))){ p.pose=null; P=_spr18(p,tgt,0); } }catch(e){}
+  return P; };
+
+/* ---------------- no drifting backwards off the net mid-spike ---------------- */
+const _sp18b=stepPlayer;
+stepPlayer=function(p){
+  if(!p.onGround&&p.airIntent==='attack'&&p.state!=='blown'&&(p.wantVx||0)*p.dir<-70) p.wantVx=-70*p.dir;
+  /* slide recover: reverse at speed and you skid, then push off fast the other way */
+  if(isH(p)&&p.onGround&&!p.ko18&&p.state!=='dive'&&p.recoverT<=0){ const k=KS(p), ax=(k.right?1:0)-(k.left?1:0);
+    if(!p.slideT&&ax&&Math.sign(p.vx)===-ax&&Math.abs(p.vx)>p.maxSpeed*0.55&&game.state==='RALLY'){ p.slideT=0.17; p.slideAx=ax; fx.dust(p.x+Math.sign(p.vx)*10,FLOOR,12); try{ sfx.squeak(); }catch(e){} }
+    if(p.slideT>0){ p.slideT-=DT; p.wantVx=0; p.vx*=0.84; if(p.slideT<=0){ p.slideT=0; const a2=((KS(p).right?1:0)-(KS(p).left?1:0))||p.slideAx; p.vx=a2*p.maxSpeed*1.12; fx.dust(p.x,FLOOR,6); } } }
+  _sp18b(p); };
+
+/* ---------------- HANDS: palm, fingers and thumb ---------------- */
+function drawHand18(c,p,P,h,e,s,LW,sk,OL,dark){
+  const ang=Math.atan2(h.y-e.y,h.x-e.x), st=p.state, up=P&&P.arms&&(P.arms[0][0]>2.2||P.arms[1][0]>2.2);
+  const open=st==='set'||st==='block'||(st==='spike')||(!p.onGround&&up)||st==='toss'||p.airIntent==='block', clasp=st==='bump';
+  const pr=3.3*s*LW, cx=h.x+Math.cos(ang)*0.6*s, cy=h.y+Math.sin(ang)*0.6*s;
+  if(open){ const fl=4.2*s, spread=st==='set'?0.42:0.3; c.lineCap='round';
+    const fp=new Path2D(); for(let i=0;i<4;i++){ const a=ang+(i-1.5)*spread*0.55, bx=cx+Math.cos(a)*pr*0.7, by=cy+Math.sin(a)*pr*0.7; fp.moveTo(bx,by); fp.lineTo(bx+Math.cos(a)*fl,by+Math.sin(a)*fl); }
+    const ta=ang-1.15, tx=cx+Math.cos(ta)*pr*0.6, ty=cy+Math.sin(ta)*pr*0.6; fp.moveTo(tx,ty); fp.lineTo(tx+Math.cos(ang-0.55)*fl*0.75,ty+Math.sin(ang-0.55)*fl*0.75);
+    c.strokeStyle=OL; c.lineWidth=2.9*s*LW; c.stroke(fp); c.strokeStyle=sk; c.lineWidth=1.6*s*LW; c.stroke(fp); }
+  c.fillStyle=sk; c.strokeStyle=OL; c.lineWidth=1.2; c.beginPath(); c.ellipse(cx,cy,(clasp?3.2:3.6)*s*LW,(open?3.0:3.3)*s,ang,0,7); c.fill(); c.stroke();
+  if(!open&&!clasp){ c.strokeStyle=rgba('#000000',0.28); c.lineWidth=0.9; c.beginPath(); const kx=cx+Math.cos(ang)*pr*0.55, ky=cy+Math.sin(ang)*pr*0.55; c.moveTo(kx+Math.cos(ang+1.57)*pr*0.7,ky+Math.sin(ang+1.57)*pr*0.7); c.lineTo(kx-Math.cos(ang+1.57)*pr*0.7,ky-Math.sin(ang+1.57)*pr*0.7); c.stroke(); }
+}
+
+/* help */
+(function(){ const H=$('scrHelp'); if(H){ const d=document.createElement('div'); d.className='field mt-3 text-[12px]'; d.innerHTML='<b class="text-amber-300">Slide recover:</b> change direction while running fast and you skid low, then push off quickly the other way.<br><b class="text-amber-300">Liberos set:</b> liberos now take some second balls and set from behind the 3 m line.'; H.appendChild(d); } })();
+</script>
+<script>
+'use strict';
+/* =========================================================================
+   v18 — Manor High highlight cutscenes (Grant's Boom Spike, Bubba's textbook
+   swing, Ethan's hammer), "you" watching and reacting, theater unlocks
+   ========================================================================= */
+function manorSetter(){ return typeof LARRY!=='undefined'?LARRY:benchOf('manor')[4]; }
+/* a highlight spike: pass → set → approach → swing → result */
+function sceneManorSpike(o){
+  const S={minT:o.minT||4.6,lineDelay:o.lineDelay||3.4,lines:o.lines,react:o.react||[]};
+  S.init=()=>{ const kA=MANOR, kB=findTeam(o.opp||'akatsuki')||TEAMS[1];
+    CS.restoreArena=CS.restoreArena||game.arena; game.arena=o.arena||'school'; bgDirty=true; buildCrowd();
+    CS.actors={hit:csActor(o.hitter,kA,NET_X-330,1),set:csActor(o.setter||manorSetter(),kA,NET_X-90,1),pas:csActor(o.passer||(typeof ENRIQUE!=='undefined'?ENRIQUE:BUBBA),kA,NET_X-470,1),
+      dg:csActor(findPlayer(o.digger||'kirishima')||benchOf(kB.id)[2],kB,NET_X+400,-1),bl:csActor(benchOf(kB.id)[0],kB,NET_X+70,-1),bl2:csActor(benchOf(kB.id)[5]||benchOf(kB.id)[1],kB,NET_X+110,-1),trail:[]};
+  };
+  S.draw=(c,T,dt)=>{ if(bgDirty) renderBG(); const A=CS.actors, hit=A.hit, set=A.set, pas=A.pas, dg=A.dg;
+    const t=slowT(T,o.slowA||1.3,o.slowB||1.62,o.slowK||0.28);
+    let z=1.2, cx=NET_X-120, cy=FLOOR-280, rate=6; if(t>1.12&&t<1.5){ z=2.4; cx=NET_X-150; cy=FLOOR-hit.h-170; rate=14; } else if(t>=1.5&&t<2.3){ z=1.7; cx=NET_X+260; cy=FLOOR-170; rate=12; } else if(t>=2.3){ z=1.15; cx=NET_X; cy=FLOOR-260; }
+    S._z=(S._z||1.2)+(z-(S._z||1.2))*Math.min(1,dt*rate); S._cx=(S._cx||cx)+(cx-(S._cx||cx))*Math.min(1,dt*rate); S._cy=(S._cy||cy)+(cy-(S._cy||cy))*Math.min(1,dt*rate);
+    const boomT=o.boom?1.62:99, sk=(t>boomT&&t<boomT+0.35)?(Math.random()-0.5)*26:((t>1.36&&t<1.45)?(Math.random()-0.5)*8:0);
+    csCam(c,t,S._z,S._cx+sk,S._cy+sk*0.5); drawCrowd(c,performance.now()/1000); drawNet(c,0,false);
+    // pass at 0.0-0.12, set at 0.62, hitter runs 0.55-0.95, jumps 0.95, swings 1.3, contact 1.38
+    if(t<0.14&&pas.state!=='bump'){ pas.setState('bump'); pas.swingT=0.25; }
+    if(jumpArc(set,t,0.48,0.6,set.jumpH*0.6)){ if(t>0.58&&t<0.72&&set.state!=='set'){ set.setState('set'); set.swingT=0.25; } else if(set.state!=='set') set.setState('jump'); }
+    if(t>0.5&&t<0.95){ hit.setState('run'); hit.runPhase=(hit.runPhase||0)+dt*18; hit.x=lerp(NET_X-330,NET_X-120,(t-0.5)/0.45); }
+    const JH=hit.jumpH*(o.jump||1.15), air=jumpArc(hit,t,0.95,0.95,JH); if(air){ hit.airIntent='attack'; hit.vy=lerp(-900,900,(t-0.95)/0.95); if(t>1.28&&t<1.5&&hit.state!=='spike'){ hit.setState('spike'); hit.swingT=0.28; hit._swMax=0.28; } else if(hit.state!=='spike') hit.setState('jump'); }
+    if(jumpArc(A.bl,t,1.0,0.8,A.bl.jumpH)){ A.bl.airIntent='block'; A.bl.setState('block'); } if(jumpArc(A.bl2,t,1.04,0.78,A.bl2.jumpH)){ A.bl2.airIntent='block'; A.bl2.setState('block'); }
+    // digger: braces, then (boom) gets blown back and stays down
+    if(o.boom){ if(t<boomT){ dg.setState('idle'); } else { if(!S._ko){ S._ko=1; dg.setState('blown'); dg.nose18=99; A.bl2.nose18=99; } const u=clamp((t-boomT)/0.7,0,1); dg.x=NET_X+400+u*230; dg.y=FLOOR-Math.sin(u*PI)*90; if(u>=1){ dg.y=FLOOR; dg.ko18=9; dg.onGround=true; dg.setState('recover'); } } }
+    else if(t>1.5&&t<1.62&&dg.state!=='dive'){ dg.setState('dive'); dg.vx=-300; }
+    for(const p of [A.bl,A.bl2,dg,pas,set,hit]){ stepActor(p,dt); drawActor(c,p,dt); }
+    // ball
+    const P0=[NET_X-520,FLOOR-260], passP=[pas.x+20,FLOOR-70], setP=[set.x,FLOOR-set.h*1.15-set.jumpH*0.5], hitP=[NET_X-95,FLOOR-hit.standReach-JH+10], digP=o.boom?[NET_X+392,FLOOR-dg.h*0.86]:(o.land||[NET_X+560,FLOOR-BALL_R]);
+    let b; if(t<0.12){ b=lerpPt(P0,passP,t/0.12); } else if(t<0.62){ const u=(t-0.12)/0.5; b=[lerp(passP[0],setP[0],u),lerp(passP[1],setP[1],u)-Math.sin(u*PI)*170]; }
+    else if(t<1.38){ const u=(t-0.62)/0.76; b=[lerp(setP[0],hitP[0],u),lerp(setP[1],hitP[1],u)-Math.sin(u*PI)*230]; }
+    else if(t<boomT||(!o.boom&&t<1.62)){ const u=clamp((t-1.38)/0.24,0,1); b=[lerp(hitP[0],digP[0],u),lerp(hitP[1],digP[1],u*u)]; }
+    else if(o.boom){ const u=t-boomT; b=[digP[0]-u*260,digP[1]-u*900+u*u*1500]; }
+    else { const u=t-1.62; b=[digP[0]+u*120,digP[1]-Math.abs(Math.sin(u*7))*90*Math.exp(-u*2.5)]; }
+    A.trail.push(b); if(A.trail.length>14) A.trail.shift(); if(t>1.38&&t<1.75) csTrail(c,A.trail,o.trail||['#fde68a','#f97316','#ffffff']);
+    if(o.formLines&&t>1.05&&t<1.6){ c.save(); c.setLineDash([8,7]); c.strokeStyle='rgba(134,239,172,.9)'; c.lineWidth=2.5; c.beginPath(); c.arc(hit.x+8,FLOOR-hit.standReach*0.86-JH*Math.min(1,(t-0.95)/0.45),hit.h*0.62,-2.6,0.3); c.stroke(); c.restore();
+      csText(c,'TEXTBOOK FORM',hit.x-20,FLOOR-hit.h-JH-170,34,'#86efac'); }
+    if(t<99) drawBallAt(c,b[0],b[1],T*10);
+    if(t>1.36&&t<1.7){ csLines(c,hitP[0],hitP[1],o.lineCol||'#fde68a',1-(t-1.36)/0.34); csText(c,o.hitText||'ドンッ!!',hitP[0]+40,hitP[1]-60,70,o.hitCol||'#ffffff'); }
+    if(o.boom&&t>boomT&&t<boomT+0.9){ const k=(t-boomT)/0.9; c.save(); c.globalCompositeOperation='lighter'; for(let i=0;i<3;i++){ const rr=(40+k*(260+i*90)); c.globalAlpha=(1-k)*0.6; c.strokeStyle=['#fde68a','#f97316','#ffffff'][i]; c.lineWidth=14-i*4; c.beginPath(); c.arc(digP[0],digP[1],rr,0,7); c.stroke(); }
+      c.globalAlpha=(1-k)*0.85; const g=c.createRadialGradient(digP[0],digP[1],4,digP[0],digP[1],140+k*120); g.addColorStop(0,'#ffffff'); g.addColorStop(0.35,'#fb923c'); g.addColorStop(1,'rgba(124,45,18,0)'); c.fillStyle=g; c.beginPath(); c.arc(digP[0],digP[1],160+k*120,0,7); c.fill(); c.restore();
+      csText(c,'B O O M',digP[0]-40,digP[1]-200,96,'#fb923c',{a:1-k*0.6}); }
+    if(o.boom&&t>boomT+0.8&&t<4.4){ csText(c,'…'+Math.max(1,5-Math.floor((t-boomT-0.8)*1.6))+'…',dg.x,FLOOR-80,34,'#e2e8f0'); }
+    if(o.after) o.after(c,t,A,b);
+    if(t>2.2) csText(c,o.title,NET_X,FLOOR-560,44,o.titleCol||'#fde68a',{a:Math.min(1,(t-2.2)*2)});
+    reactPIP18(c,t,S.react); };
+  return S; }
+function sceneGrantBoom(){ return sceneManorSpike({hitter:GRANT,boom:true,jump:1.3,title:'THE BOOM SPIKE',titleCol:'#fb923c',hitText:'ドカン!!',hitCol:'#fb923c',lineCol:'#f97316',trail:['#fff7ed','#f97316','#7c2d12'],
+  react:[[1.62,'shock'],[2.4,'hype']],
+  lines:[['mh_grant','Up together. Then I hit it.'],['you','The dig was clean… and it still exploded.'],['you','He\'s still down. Five seconds. FIVE.'],['mh_ethan','THAT\'S MY GUY! BOOM! BOOOOM!']]}); }
+function sceneBubbaForm(){ return sceneManorSpike({hitter:BUBBA,jump:0.9,formLines:true,land:[NET_X+590,FLOOR-BALL_R],title:'TEXTBOOK',titleCol:'#86efac',hitText:'ピタッ',hitCol:'#86efac',lineCol:'#86efac',trail:['#ecfdf5','#86efac','#ffffff'],slowA:1.1,slowB:1.6,slowK:0.25,
+  react:[[1.4,'nod'],[1.9,'hype']],
+  lines:[['you','He barely jumps. Doesn\'t matter.'],['you','Same swing every time. Perfect wrist, perfect angle, back corner.'],['mh_bubba','Good platform. Good feet. Good ball.']]}); }
+function sceneEthanHammer(){ return sceneManorSpike({hitter:ETHAN,jump:1.0,land:[NET_X+300,FLOOR-BALL_R],title:'BIG KID',titleCol:'#fde047',hitText:'ドーン!!',hitCol:'#fde047',lineCol:'#fde047',
+  react:[[1.45,'shock'],[2.1,'laugh']],
+  after:(c,t,A)=>{ if(t>1.75){ A.hit.celebT=3; csText(c,'DID YOU SEE THAT?! DID YOU SEE IT?!',A.hit.x+40,FLOOR-A.hit.h-150,30,'#fde047',{a:Math.min(1,(t-1.75)*3)}); } if(t>1.6&&t<2.2){ c.save(); c.strokeStyle='rgba(253,224,71,.8)'; c.lineWidth=5; c.beginPath(); c.ellipse(NET_X+300,FLOOR+2,60+(t-1.6)*200,12+(t-1.6)*20,0,0,7); c.stroke(); c.restore(); } },
+  lines:[['mh_ethan','Wait wait wait— watch this one. WATCH.'],['you','He told everyone exactly where it was going. Nobody could stop it anyway.'],['mh_ethan','HAHA! Again! Set me again!'],['you','…He\'s 18. He\'s acting like he\'s 8.']]}); }
+
+/* ---------------- serve showcase (used for the serve reels) ---------------- */
+function sceneServeShow(o){
+  const S={minT:o.kinds.length*2.5+0.5,lineDelay:99,lines:[],dur:0.1};
+  S.init=()=>{ const kA=MANOR, kB=findTeam(o.opp||'akatsuki')||TEAMS[1]; CS.restoreArena=CS.restoreArena||game.arena; game.arena=o.arena||'school'; bgDirty=true; buildCrowd();
+    CS.actors={sv:csActor(o.server,kA,COURT_L-60,1),r1:csActor(benchOf(kB.id)[2],kB,NET_X+380,-1),r2:csActor(benchOf(kB.id)[1],kB,NET_X+180,-1),trail:[]}; };
+  S.draw=(c,T,dt)=>{ if(bgDirty) renderBG(); const A=CS.actors, sv=A.sv, seg=Math.min(o.kinds.length-1,Math.floor(T/2.5)), u=T-seg*2.5, kind=o.kinds[seg], jump=kind!=='float';
+    const SX=COURT_L-42, land=[NET_X+(jump?430:520)+(seg%2?60:-40),FLOOR-BALL_R];
+    let z=1.5, cx=(view.x0||0), cy=FLOOR-250, rate=8; if(u>1.08){ z=1.15; cx=NET_X+120; cy=FLOOR-260; rate=6; }
+    S._z=(S._z||1.4)+(z-(S._z||1.4))*Math.min(1,dt*rate); S._cx=(S._cx||cx)+(cx-(S._cx||cx))*Math.min(1,dt*rate); S._cy=(S._cy||cy)+(cy-(S._cy||cy))*Math.min(1,dt*rate);
+    csCam(c,T,S._z,S._cx,S._cy); drawCrowd(c,performance.now()/1000); drawNet(c,0,false);
+    if(u<0.05){ sv.x=SX; sv.setState('idle'); sv.airIntent=null; sv.onGround=true; sv.y=FLOOR; A.trail.length=0; }
+    let contact; if(jump){ if(u<0.3) sv.setState('toss'); if(u>0.42&&u<0.78){ sv.setState('run'); sv.runPhase=(sv.runPhase||0)+dt*18; sv.x=lerp(SX,SX+70,(u-0.42)/0.36); }
+        const air=jumpArc(sv,u,0.78,0.8,sv.jumpH*0.95); if(air){ sv.airIntent='attack'; sv.vy=lerp(-900,900,(u-0.78)/0.8); if(u>1.0&&u<1.2&&sv.state!=='spike'){ sv.setState('spike'); sv.swingT=0.28; sv._swMax=0.28; } else if(sv.state!=='spike') sv.setState('jump'); }
+        contact=[SX+100,FLOOR-sv.standReach-sv.jumpH*0.95+12]; }
+    else { if(u<0.62) sv.setState('toss'); else if(u<0.66&&sv.state!=='spike'){ sv.setState('spike'); sv.swingT=0.28; } contact=[SX+20,FLOOR-sv.standReach-14]; }
+    const tC=jump?1.08:0.68, fl=jump?0.42:0.85;
+    // receivers react late
+    if(u>tC+fl*0.75&&u<tC+fl+0.1&&A.r1.state!=='dive'){ A.r1.setState('dive'); A.r1.vx=-200; } if(u>tC+fl+0.3) A.r1.sadT=1;
+    for(const p of [A.r1,A.r2,sv]){ stepActor(p,dt); drawActor(c,p,dt); }
+    let b; const top=[sv.x+12,contact[1]-(jump?170:110)];
+    if(u<tC){ const k=clamp(u/tC,0,1); b=[lerp(sv.x+16,contact[0],k),lerp(FLOOR-sv.h*0.75,top[1],Math.sin(k*PI*0.5))+(k>0.7?(contact[1]-top[1])*((k-0.7)/0.3)**2:0)]; }
+    else if(u<tC+fl){ const k=(u-tC)/fl, C=[NET_X-20,NET_TOP-(jump?150:260)], q=1-k; b=[q*q*contact[0]+2*q*k*C[0]+k*k*land[0]+(jump?0:Math.sin(k*26)*10*k),q*q*contact[1]+2*q*k*C[1]+k*k*land[1]]; }
+    else { const k=u-tC-fl; b=[land[0]+k*90,land[1]-Math.abs(Math.sin(k*7))*70*Math.exp(-k*2.5)]; }
+    A.trail.push(b); if(A.trail.length>12) A.trail.shift(); if(u>tC&&u<tC+fl+0.1) csTrail(c,A.trail,jump?['#fde68a','#f97316','#ffffff']:['#e0f2fe','#7dd3fc','#ffffff']);
+    drawBallAt(c,b[0],b[1],T*(jump?14:2));
+    if(u>tC-0.02&&u<tC+0.3) csLines(c,contact[0],contact[1],jump?'#fde68a':'#bae6fd',1-(u-tC)/0.32);
+    csText(c,(o.labels&&o.labels[seg])||(jump?'JUMP SERVE':'FLOAT SERVE'),NET_X-160,FLOOR-560,40,jump?'#fb923c':'#7dd3fc',{a:Math.min(1,u*3)});
+    if(u>tC+fl&&u<2.45) csText(c,'ACE!',land[0],FLOOR-260,64,'#fde047',{a:Math.min(1,(u-tC-fl)*4)});
+    csText(c,o.server.name+' #'+o.server.num,SX+60,FLOOR+70,30,'#ffffff');
+  };
+  return S; }
+/* ---------------- "you" watching: a picture-in-picture that reacts ---------------- */
+let REACT18=null;
+function reactPIP18(c,t,marks){ try{ const A=typeof apx==='function'&&apx(), d=A?findPlayer(A.hero):(game.human&&game.human.def)||(Save.data.customs&&Save.data.customs[0]); if(!d) return;
+    if(!REACT18||REACT18.def!==d){ REACT18={def:d,p:csActor(d,findTeam(d.team)||TEAMS[0],0,1)}; }
+    const p=REACT18.p; let mood='watch'; for(const [tm,m] of (marks||[])) if(t>=tm) mood=m;
+    p.anim+=0.016; p.stateT+=0.016; p.celebT=(mood==='hype'||mood==='laugh')?1:0; p.sadT=0; if(p.state!=='idle') p.setState('idle');
+    const W=c.canvas.width, H=c.canvas.height, bw=Math.round(Math.min(W,H)*0.26), bh=Math.round(bw*0.72), bx=Math.round(W*0.02), by=Math.round(H-H*0.06-bh-10);
+    c.save(); c.setTransform(1,0,0,1,0,0); c.fillStyle='rgba(2,6,23,.82)'; c.strokeStyle='#38bdf8'; c.lineWidth=3; c.beginPath(); c.roundRect?c.roundRect(bx,by,bw,bh,14):c.rect(bx,by,bw,bh); c.fill(); c.stroke(); c.clip();
+    const k=bw/150; c.setTransform(k,0,0,k,bx+bw*0.5,by+bh*1.55); c.translate(-p.x,-FLOOR); drawPlayer(c,p,{dt:0.016,noShadow:true,noAura:true});
+    c.setTransform(1,0,0,1,0,0); c.font=`900 ${Math.round(bw*0.085)}px Nunito,sans-serif`; c.fillStyle='#7dd3fc'; c.fillText('YOU · WATCHING',bx+10,by+bw*0.1);
+    const say={shock:'WHAT?!',hype:'LET\'S GOOO!',laugh:'HAHAHA',nod:'…clean.',watch:''}[mood]; if(say){ c.font=`900 ${Math.round(bw*0.13)}px Bangers,Nunito`; c.fillStyle='#fde047'; c.strokeStyle='#020617'; c.lineWidth=4; c.strokeText(say,bx+bw*0.52,by+bh*0.32); c.fillText(say,bx+bw*0.52,by+bh*0.32); }
+    c.restore(); }catch(e){} }
+/* the World League highlights get the same reaction window */
+(function(){ for(const [nm,marks] of [['sceneTinyAce',[[1.2,'shock'],[3.5,'hype']]],['sceneBackSpike',[[0.9,'shock'],[1.5,'hype']]]]){ const f=window[nm]; if(typeof f!=='function') continue;
+  window[nm]=function(){ const S=f(); const d=S.draw; S.draw=(c,T,dt)=>{ d(c,T,dt); reactPIP18(c,T,marks); }; return S; }; } })();
+
+/* ---------------- cutscene registry + theater unlocks ---------------- */
+CS_BUILD.mhGrant=()=>[sceneTitle('MANOR HIGH · HIGHLIGHT','The Boom Spike','#fb923c'),sceneGrantBoom()];
+CS_BUILD.mhBubba=()=>[sceneTitle('MANOR HIGH · HIGHLIGHT','Textbook','#86efac'),sceneBubbaForm()];
+CS_BUILD.mhEthan=()=>[sceneTitle('MANOR HIGH · HIGHLIGHT','Big Kid','#fde047'),sceneEthanHammer()];
+CS_BUILD.manor=()=>[sceneTitle('MANOR HIGH','Highlights from back home','#60a5fa',[['you','Somebody sent me clips from Manor High. I had to watch.']]),sceneGrantBoom(),sceneBubbaForm(),sceneEthanHammer()];
+const THR18=[['ch2','The Beginning','Chapter 1 · the stuff block and the letter',2],['mhGrant','The Boom Spike','Manor High · Grant',2],['mhBubba','Textbook','Manor High · Bubba',2],['mhEthan','Big Kid','Manor High · Ethan',2],
+  ['second','Second Selection','',3],['third','Third Selection','',4],['league','APEX World League','The league opens',5],['wlTiny','The Tiny Ace','World League · one-arm dig, jump set, higher than the net',5],['wlBack','Out of Bounds','World League · back spike off a ball going out',5]];
+function thrSeen(){ return Save.data.thr18=Save.data.thr18||{}; }
+function thrUnlocked(k,ph){ if(thrSeen()[k]) return true; try{ const A=apx(); if(!A) return false; const i=AP_PHASES.findIndex(x=>x[0]===A.phase); if(k.startsWith('mh')) return !!(A.flags&&A.flags.manorCs); return i>=ph; }catch(e){ return false; } }
+/* mark scenes as seen when the story plays them */
+(function(){ for(const k of Object.keys(CS_BUILD)){ const f=CS_BUILD[k]; CS_BUILD[k]=function(){ try{ const S=thrSeen(); S[k]=true; if(k==='league'){ S.wlTiny=S.wlBack=true; } if(k==='manor'){ S.mhGrant=S.mhBubba=S.mhEthan=true; } Save.store(); }catch(e){} return f.apply(this,arguments); }; } })();
+openTheater=function(){ const box=document.createElement('div'); box.id='thr12'; box.style.cssText='position:fixed;inset:0;z-index:60;background:rgba(2,6,23,.85);display:flex;align-items:center;justify-content:center;padding:16px';
+  box.innerHTML=`<div style="width:min(540px,100%);background:#0f172a;border:2px solid #38bdf8;border-radius:20px;padding:14px;max-height:90vh;overflow:auto"><div style="font:400 32px Bangers,Nunito;color:#fff">🎬 CUTSCENE THEATER</div><div style="font-size:11px;color:#94a3b8">Scenes unlock when you reach them in the story.</div>
+    ${THR18.map(([k,n,d,ph])=>{ const u=thrUnlocked(k,ph)&&CS_BUILD[k]; return `<button class="tab" data-cs="${k}" ${u?'':'disabled'} style="display:block;width:100%;text-align:left;margin-top:6px;${u?'':'opacity:.4'}"><b>${u?'':'🔒 '}${esc(n)}</b><br><span style="font-size:11px;color:#94a3b8">${u?esc(d):'Keep going in the story to unlock'}</span></button>`; }).join('')}
+    <button class="tab" id="thrX" style="margin-top:10px;width:100%">CLOSE</button></div>`;
+  document.body.appendChild(box); $('thrX').onclick=()=>box.remove();
+  box.querySelectorAll('[data-cs]:not([disabled])').forEach(b=>b.onclick=()=>{ box.remove(); try{ playCutscene(CS_BUILD[b.dataset.cs](),()=>{ try{ show('scrStory'); }catch(e){} }); }catch(e){ console.error(e); } }); };
+/* the story shows the Manor High clips once you've left for APEX */
+const _is18=initStory; initStory=function(){ try{ const A=typeof apx==='function'&&apx(); if(A){ A.flags=A.flags||{}; } if(A&&!A.flags.manorCs){ const i=AP_PHASES.findIndex(x=>x[0]===A.phase); if(i>=2){ A.flags.manorCs=true; A.queue=A.queue||[]; A.queue.unshift({cs:'manor'}); Save.store(); } } }catch(e){} return _is18(); };
+</script>
+<script>
+'use strict';
+/* =========================================================================
+   v18 — ONLINE STORY (co-op): the host plays their own story; the friend's
+   player joins every story match as the host's teammate. Story progress,
+   cutscenes and rewards stay on the host's save.
+   ========================================================================= */
+(function(){ const s=$('onMode'); if(s&&!s.querySelector('[value="story"]')){ const o=document.createElement('option'); o.value='story'; o.textContent='Story co-op: play my story together'; s.appendChild(o); } })();
+NET.storyCoop=false;
+/* host: START with "Story co-op" opens your story; every match you start there is online */
+const _hs18=hostStart;
+hostStart=function(){ if($('onMode')&&$('onMode').value==='story'){ if(!NET.remote) return netStatus('Waiting for your friend…');
+    if(typeof apx!=='function'||!apx()) return toast('Start your story first (Story Mode), then come back and host.');
+    NET.storyCoop=true; NET.mode='story'; send({t:'storyWait',name:myName()}); netStatus('Story co-op on: pick your next story match. '+NET.remote.name+' joins as your teammate.');
+    try{ show('scrStory'); initStory(); }catch(e){ console.error(e); } toast('🌐 Story co-op: '+NET.remote.name+' joins your next story match'); return; }
+  NET.storyCoop=false; return _hs18(); };
+/* host: put the friend into the lineup */
+const _ap18d=apexPlay;
+apexPlay=function(m){ if(NET.storyCoop&&NET.role==='host'&&NET.remote&&NET.conn&&m&&m.kind!=='drill'&&Array.isArray(m.L)&&m.L.length>=2){
+    const me=myDefPacked(); NET.defs.g=Object.assign({},NET.remote.def,{id:'net_g'}); NET.cos.g=NET.remote.cos; NET.defs.h=Object.assign({},me.def,{id:'net_h'}); NET.cos.h=me.cos;
+    const A=apx(), L=m.L.slice(); let i=L.findIndex((id,k)=>k>0&&id!==A.hero&&findPlayer(id)&&findPlayer(id).role!=='L'); if(i<0) i=L.findIndex(id=>id!==A.hero); if(i>=0) L[i]='net_g';
+    m=Object.assign({},m,{L}); NET._storyPending=true; }
+  return _ap18d(m); };
+const _bm18d=beginMatch;
+beginMatch=function(cfg){ _bm18d(cfg);
+  try{ if(!(NET._storyPending&&NET.storyCoop&&NET.role==='host'&&cfg.mode==='apex')) return; NET._storyPending=false;
+    const pg=game.players.find(p=>p.def.id==='net_g'); if(!pg) return; pg.ctrl='remote'; pg.keys=NET.rkeys; pg.cos=Object.assign({},DEFAULT_COS,NET.cos.g||{});
+    NET.inMatch=true; NET.events=[]; NET.snap=null; NET.localIdx=game.players.indexOf(game.human); NET.remoteIdx=game.players.indexOf(pg);
+    const defs={}; for(const p of game.players) defs[p.def.id]=p.def; const tm=s=>{ const T=team(s), K=T.kit; return {id:K.id,name:K.name,c1:K.c1,c2:K.c2,c3:K.c3,ids:T.players.map(p=>p.def.id)}; };
+    const gcfg=Object.assign({},cfg,{mode:'online',apex:null,apexKind:null,apexData:null,rosterL:team('L').players.map(p=>p.def.id),rosterR:team('R').players.map(p=>p.def.id),humanIdx:NET.remoteIdx});
+    send({t:'storyStart',cfg:gcfg,defs,cos:{g:NET.cos.g,h:NET.cos.h},teams:{L:tm('L'),R:tm('R')},hero:game.human.def.id,title:(apx()&&AP_PHASES.find(x=>x[0]===apx().phase)||[0,'STORY'])[1]});
+    announce('ONLINE STORY','オンライン・ストーリー','with '+NET.remote.name,'#22d3ee'); }catch(e){ console.error(e); } };
+/* host: the end of a story match goes to the friend too, then the story carries on as usual */
+const _em18d=endMatch;
+endMatch=function(){ if(NET.storyCoop&&NET.inMatch&&NET.role==='host'&&game.mode==='apex'){ try{ send({t:'end',w:game.matchWinner,sc:[team('L').score,team('R').score],st:game.players.map(p=>p.st)}); }catch(e){} NET.inMatch=false; } return _em18d(); };
+/* guest: build the same match from the host's data and follow it */
+let NETDEFS18=null;
+(function(){ const fp=findPlayer; findPlayer=function(id){ if(NETDEFS18&&NETDEFS18[id]) return Object.assign({},NETDEFS18[id]); return fp(id); }; })();
+const _on18=onNet;
+onNet=function(m){ if(m&&m.t==='storyWait'&&NET.role==='guest'){ netStatus((m.name||'The host')+' is picking a story match. You\'ll join as a teammate.'); return; }
+  if(m&&m.t==='storyStart'&&NET.role==='guest'){ try{ NETDEFS18=m.defs||{}; NET.defs.g=m.defs.net_g; NET.cos=m.cos||{};
+      for(const k of ['L','R']){ const t=m.teams[k]; let T=findTeamRaw(t.id); if(!T){ T={id:t.id,hidden:true,jp:'',mascot:'',home:m.cfg.arena,style:{POWER:26,LINE:20,CROSS:20,FEINT:14,SPECIAL:20},players:[]}; TEAMS.push(T); } Object.assign(T,{name:t.name,c1:t.c1,c2:t.c2,c3:t.c3,players:t.ids.map(i=>Object.assign({},m.defs[i]))}); }
+      if(!ARENAS[m.cfg.arena]) m.cfg.arena='national';
+      NET.inMatch=true; NET.events=[]; NET.snap=null; NET.mode='story';
+      beginMatch(m.cfg); game.mode='online';
+      const me=game.players.find(p=>p.def.id==='net_g'), host=game.players.find(p=>p.def.id===m.hero);
+      for(const p of game.players) if(p!==me) p.ctrl='ai'; if(me){ me.ctrl='human'; me.cos=Object.assign({},DEFAULT_COS,NET.cos.g||{}); game.human=me; }
+      if(host){ host.ctrl='remote'; host.cos=Object.assign({},DEFAULT_COS,NET.cos.h||{}); }
+      game.netGuest=true; NET.localIdx=game.players.indexOf(me); NET.remoteIdx=game.players.indexOf(host); hud(); if(typeof applyTouchUI==='function') applyTouchUI();
+      announce('ONLINE STORY','オンライン・ストーリー',String(m.title||''),'#22d3ee'); }catch(e){ console.error(e); } return; }
+  return _on18(m); };
+if(NET.conn&&NET.conn.off){ try{ NET.conn.off('data'); NET.conn.on('data',onNet); }catch(e){} }
+/* leaving the online screen keeps story co-op on until you disconnect */
+const _nc18=netClose; netClose=function(msg){ NET.storyCoop=false; NETDEFS18=null; return _nc18(msg); };
+/* story screen banner while co-op is on */
+const _is18d=initStory; initStory=function(){ _is18d(); try{ const id='coopBan18'; let b=$(id); if(NET.storyCoop&&NET.remote){ if(!b){ b=document.createElement('div'); b.id=id; b.className='field mb-2 text-[12px] font-black'; b.style.cssText='border-color:#22d3ee;color:#67e8f9'; const host=$('scrStory'); if(host) host.insertBefore(b,host.children[1]||null); } b.textContent='🌐 STORY CO-OP · '+NET.remote.name+' joins your next match as a teammate'; } else if(b) b.remove(); }catch(e){} };
+</script>
+<script>
+'use strict';
+/* =========================================================================
+   v18 — Grant's full two-strand twists, Larry's mustache, face hits and
+   nosebleeds from Grant's spikes
+   ========================================================================= */
+/* ---------------- Full Two-Strand (covers the whole head) ---------------- */
+(function(){ const id='hGT', h={id,fam:'twostrand',v:5,name:'Full Two-Strand'}; HAIR_DB.push(h); HAIR_BY_ID[id]=h; HAIR_LABEL[id]=h.name; HAIR_STYLES.push(id); })();
+const _hs18e=hairSpec;
+hairSpec=function(id){ if(id!=='hGT') return _hs18e(id); if(HSPEC_CACHE[id]) return HSPEC_CACHE[id];
+  const R=seeded(4242), sp={cap:{scale:1.12,front:0.1,alpha:1},strands:[],chains:[],extras:[]};
+  const rope=(a,dir,L,w,o)=>{ const st=S_(a,L,w,0.1,0.85,0.22,'front',0.9); st.dir=dir; st.rope='two'; st.seed=R(); Object.assign(st,o||{}); sp.strands.push(st); return st; };
+  const J=x=>x*(0.9+R()*0.2);
+  // back layer: a full ring of twists hanging around the back and sides
+  for(let i=0;i<16;i++){ const f=i/15, a=-(0.2+0.85*f)*PI; rope(a,(0.38+0.34*f)*PI+(R()-0.5)*0.15,J(0.78),0.2,{layer:'back',sag:0.18,flex:0.7,rootR:0.95}); }
+  // top/front layer: twists that spill forward and cover the crown and hairline
+  for(let i=0;i<18;i++){ const f=i/17, a=-(0.2+0.75*f)*PI; rope(a,a+0.45+(R()-0.5)*0.25,J(0.62),0.19,{layer:f>0.82?'back':'front',sag:0.14,bend:0.22,flex:0.6,rootR:0.88}); }
+  for(let i=0;i<4;i++) rope((-0.12-i*0.05)*PI,(-0.05-i*0.04)*PI,J(0.3),0.18,{layer:'front',sag:0.04,flex:0.4});
+  // inner layer: twists rooted inside the outline so the temples and sides are covered too
+  for(let i=0;i<12;i++){ const f=i/11, a=-(0.5+0.45*f)*PI; rope(a,(0.7+0.15*f)*PI+(R()-0.5)*0.15,J(0.48),0.2,{layer:'front',rootR:0.45+0.2*R(),sag:0.12,flex:0.4}); }
+  HSPEC_CACHE[id]=sp; return sp; };
+/* ---------------- Bubba: thick mop, fringe over his eyes, taper ---------------- */
+(function(){ const id='hBB', h={id,fam:'messy',v:9,name:'Mop Fringe Taper'}; HAIR_DB.push(h); HAIR_BY_ID[id]=h; HAIR_LABEL[id]=h.name; HAIR_STYLES.push(id); })();
+const _hs18f=hairSpec;
+hairSpec=function(id){ if(id!=='hBB') return _hs18f(id); if(HSPEC_CACHE[id]) return HSPEC_CACHE[id];
+  const R=seeded(5151), sp={cap:{scale:1.15,front:0.03,alpha:1},strands:[],chains:[],extras:[]};
+  const add=(a,L,w,bend,flex,sag,layer,rootR)=>sp.strands.push(S_(a*PI,L,w,bend,flex,sag,layer,rootR));
+  for(let i=0;i<10;i++){ const f=i/9; add(-(0.1+0.9*f),0.62+R()*0.12,0.36,0.75,0.9,0.06,'front',0.86); }          // volume, swept forward
+  for(let i=0;i<7;i++) add(-0.4+i*0.065,0.9+i*0.05+R()*0.08,0.26,1.55,1.0,0.04,'front',0.74);                       // heavy fringe over the eyes
+  for(let i=0;i<3;i++) add(0.78+i*0.07,0.42,0.3,0.25,1,0.04,'back',0.9);                                            // short back (taper)
+  HSPEC_CACHE[id]=sp; return sp; };
+try{ BUBBA.hair='hBB'; }catch(e){}
+try{ GRANT.hair='hGT'; GRANT.hairAlt=['hGT','h123']; }catch(e){}
+const _bm18e=beginMatch; beginMatch=function(cfg){ const r=_bm18e(cfg); try{ const h=Math.random()<0.65?'hGT':'h123'; GRANT.hair=h; for(const t of TEAMS) for(const d of t.players||[]) if(d&&d.id==='mh_grant') d.hair=h; for(const p of game.players||[]) if(p.def.id==='mh_grant'){ p.def.hair=h; } }catch(e){} return r; };
+
+/* ---------------- mustache + nosebleed (drawn in the head's own space) ---------------- */
+const _dm18e=drawMouth;
+drawMouth=function(c,p,r,s,P,skin){ _dm18e(c,p,r,s,P,skin);
+  try{ const mx=r*0.68, my=r*0.7;
+    if(p.def&&p.def.stache){ c.save(); c.strokeStyle=rgba(shade(p.def.hairColor||'#1a120c',-0.1),0.85); c.lineCap='round'; c.lineWidth=Math.max(1,r*0.085); c.beginPath(); c.moveTo(mx-r*0.2,my-r*0.1); c.quadraticCurveTo(mx+r*0.02,my-r*0.2,mx+r*0.22,my-r*0.09); c.stroke(); c.restore(); }
+    if(p.nose18>0){ const k=Math.min(1,p.nose18/1.2), nx=r*0.84, ny=r*0.42; c.save(); c.globalAlpha=k; c.lineCap='round';
+      c.strokeStyle='#b91c1c'; c.lineWidth=Math.max(1.2,r*0.1); c.beginPath(); c.moveTo(nx,ny); c.lineTo(nx-r*0.04,my+r*0.06); c.moveTo(nx-r*0.12,ny+r*0.02); c.lineTo(nx-r*0.17,my+r*0.22); c.stroke();
+      c.strokeStyle='#ef4444'; c.lineWidth=Math.max(0.8,r*0.05); c.beginPath(); c.moveTo(nx,ny); c.lineTo(nx-r*0.04,my+r*0.04); c.stroke();
+      const dy=((p.anim||0)*1.6)%1; c.fillStyle='#dc2626'; c.beginPath(); c.arc(nx-r*0.17,my+r*0.25+dy*r*0.5,r*0.06,0,7); c.fill(); c.restore(); } }catch(e){} };
+function noseBleed18(p,t){ if(!p) return; p.nose18=Math.max(p.nose18||0,t||6); try{ const h=p.headW||{x:p.x,y:p.y-p.h}; fx.burst(h.x+p.dir*8,h.y+4,'#dc2626',8,160); }catch(e){} }
+const _sp18e=stepPlayer; stepPlayer=function(p){ _sp18e(p); if(p.nose18>0) p.nose18=Math.max(0,p.nose18-DT); };
+
+/* ---------------- Grant's spikes hit faces ---------------- */
+const _dig18e=doDig;
+doDig=function(p,z){ const A=ball.attacker, boom=!!ball.boom18&&ball.boom18.side!==p.side, spd=Math.hypot(ball.vx,ball.vy);
+  const face=!boom&&A&&A.def&&A.def.faceHitter&&A.side!==p.side&&ball.lastPlayer===A&&spd>950&&Math.random()<0.32;
+  _dig18e(p,z);
+  try{ if(boom){ noseBleed18(p,7); for(const q of team(p.side).players) if(q!==p&&Math.abs(q.x-p.x)<170){ noseBleed18(q,4); } }
+    if(face){ noseBleed18(p,5); fx.text(p.x,p.y-p.h-60,'FACE!','#f87171',24); try{ fx.shake(8); sfx.block(); }catch(e){}
+      p.recoverT=Math.max(p.recoverT,0.6); p.sadT=1.2; if(ball.live){ ball.vx=-p.dir*rand(-120,260); ball.vy=-rand(700,900)*VS; ball.noRescue=false; } } }catch(e){ console.error(e); } };
+const _ap18e=awardPoint; awardPoint=function(w,r){ try{ if(ball.boom18&&(r==='KILL'||r==='ACE')){ const x=game.landMark?game.landMark.x:ball.x; for(const o of team(opp(ball.boom18.side)).players) if(Math.abs(o.x-x)<170) noseBleed18(o,5); } }catch(e){} return _ap18e(w,r); };
+/* Manor's bench never wears 1, 5, 6, 10 or 12 */
+const _bo18e=benchOf; benchOf=function(id){ const L=_bo18e(id); if(id==='manor'||id==='worldfive'){ const nums=[2,3,4,7,8,9]; L.forEach((d,i)=>{ d.num=nums[i%nums.length]; }); } return L; };
 </script>
 
 <script>
