@@ -1518,7 +1518,7 @@ function doAttack(p,kind){
   else launchOver(ball,tx,FLOOR-BALL_R,k==='ROLL'?34:(k==='dump'||k==='DUMP'||k==='FEINT'?14:22));
   ball.blockChecked=!blockable; ball.heavy=(k==='cannon'||k==='METEOR'||(mv&&mv.el==='tide'));
   ball.element=mv?mv.el:(special?null:null); ball.phantom=k==='phantom'?0.55:0; ball.split=k==='split'; ball.spiral=k==='spiral'; ball.hover=k==='zero'?0.24:0; ball.moveRar=mv?mv.rar:null;
-  if(special){ p.moveAnim={style:(mv?mv.anim:({cannon:'slam',drop:'arch',cut:'twist',tempo:'snap',leap:'spin',dump:'snap',wipe:'slam',phantom:'fade',split:'mirror',quake:'hammer',spiral:'spin',zero:'hang'})[k]||'snap'),t:0,el:mv?mv.el:null}; if(k==='zero'||(mv&&mv.anim==='hang')) p.hangT=0.32; }
+  if(special){ p.moveAnim={style:(mv?mv.anim:({cannon:'slam',drop:'arch',cut:'twist',tempo:'snap',leap:'arch',dump:'snap',wipe:'slam',phantom:'fade',split:'mirror',quake:'hammer',spiral:'spin',zero:'hang'})[k]||'snap'),t:0,el:mv?mv.el:null}; if(k==='zero'||(mv&&mv.anim==='hang')) p.hangT=0.32; }
   if(k==='quake'){ for(const o of team(opp(p.side)).players){ if(o.onGround&&o.state!=='dive'){ o.recoverT=Math.max(o.recoverT,0.38); o.setState('recover'); } } fx.shake(18); if(typeof quakeFx==='function') quakeFx(p); } ball.wipe=(k==='wipe'); ball.attacker=p;
   T.lastKinds.push(kind); if(T.lastKinds.length>4) T.lastKinds.shift();
   p.setState('spike'); p.swingT=0.28; p.gauge=Math.min(100,p.gauge+(special?0:4));
@@ -2310,7 +2310,7 @@ function drawPlayer(c,p,opts){
   // move animations
   const MA=p.moveAnim; if(MA&&!ghost){ MA.t+=dt; if(MA.t>0.75) p.moveAnim=null; }
   if(MA){ const t=MA.t;
-    if(MA.style==='spin'&&t<0.5){ const ang=Math.min(1,t/0.45)*PI*2; c.translate(0,-hipH-14*s); c.rotate(ang); c.translate(0,hipH+14*s); }
+    if(MA.style==='spin'&&t<0.4){ const k=Math.sin(t/0.4*PI); c.scale(1-0.35*k,1); P.lean-=0.15*k; }
     if(MA.style==='twist'&&t<0.35){ c.scale(1-0.55*Math.sin(t/0.35*PI),1); }
     if((MA.style==='slam'||MA.style==='hammer')&&t<0.4){ P.arms[1][0]=P.arms[0][0]; P.arms[1][1]=P.arms[0][1]; }
     if(MA.style==='arch'&&t<0.25){ P.lean-=0.25*(1-t/0.25); }
@@ -2344,15 +2344,33 @@ function drawPlayer(c,p,opts){
   const segO=(a,b,w)=>{ c.strokeStyle=OL; c.lineWidth=w*s+2.2; c.beginPath(); c.moveTo(a.x,a.y); c.lineTo(b.x,b.y); c.stroke(); };
   const segF=(a,b,w,col,hl)=>{ w*=s; c.strokeStyle=col; c.lineWidth=w; c.beginPath(); c.moveTo(a.x,a.y); c.lineTo(b.x,b.y); c.stroke(); shd(a,b,w); if(hl){ c.strokeStyle=hl; c.lineWidth=w*0.3; c.beginPath(); c.moveTo(a.x+w*0.22,a.y); c.lineTo(b.x+w*0.22,b.y); c.stroke(); } };
   const flat=(a,b,w,col)=>{ c.strokeStyle=col; c.lineWidth=w*s; c.beginPath(); c.moveTo(a.x,a.y); c.lineTo(b.x,b.y); c.stroke(); };
-  const LW=B.limb;
+  const LW=B.limb, HQ2=(typeof GQ==='undefined'||GQ>=2)&&!ghost;
+  const limbPath=(a,b,w0,w1,bul)=>{ const dx=b.x-a.x, dy=b.y-a.y, L=Math.hypot(dx,dy)||1, nx=-dy/L, ny=dx/L, N=6, L1=[], R1=[];
+    for(let i=0;i<=N;i++){ const t=i/N, w=(w0+(w1-w0)*t+bul*Math.sin(t*PI))*s*0.5, x=a.x+dx*t, y=a.y+dy*t; L1.push([x+nx*w,y+ny*w]); R1.push([x-nx*w,y-ny*w]); }
+    c.beginPath(); c.moveTo(L1[0][0],L1[0][1]); for(let i=1;i<=N;i++) c.lineTo(L1[i][0],L1[i][1]); c.arc(b.x,b.y,w1*s*0.5,Math.atan2(ny,nx),Math.atan2(-ny,-nx),false);
+    for(let i=N;i>=0;i--) c.lineTo(R1[i][0],R1[i][1]); c.arc(a.x,a.y,w0*s*0.5,Math.atan2(-ny,-nx),Math.atan2(ny,nx),false); c.closePath(); return {nx,ny}; };
+  const limb3=(a,j,b,w0,wj,w1,b1,b2)=>{ const pts=[], N=6; const side=[];
+    const segs=[[a,j,w0,wj,b1],[j,b,wj,w1,b2]]; const Lp=[], Rp=[];
+    segs.forEach(([p0,p1,u0,u1,bu],si)=>{ const dx=p1.x-p0.x, dy=p1.y-p0.y, L=Math.hypot(dx,dy)||1, nx=-dy/L, ny=dx/L; for(let i=(si?1:0);i<=N;i++){ const t=i/N, w=(u0+(u1-u0)*t+bu*Math.sin(t*PI))*s*0.5, x=p0.x+dx*t, y=p0.y+dy*t; Lp.push([x+nx*w,y+ny*w]); Rp.push([x-nx*w,y-ny*w]); } });
+    c.beginPath(); c.moveTo(Lp[0][0],Lp[0][1]); for(const q of Lp) c.lineTo(q[0],q[1]);
+    const e=Lp[Lp.length-1], f=Rp[Rp.length-1]; c.quadraticCurveTo(b.x+(b.x-j.x)*0.12+(e[0]-f[0])*0,b.y+(b.y-j.y)*0.12,f[0],f[1]);
+    for(let i=Rp.length-1;i>=0;i--) c.lineTo(Rp[i][0],Rp[i][1]); c.quadraticCurveTo(a.x-(j.x-a.x)*0.12,a.y-(j.y-a.y)*0.12,Lp[0][0],Lp[0][1]); c.closePath();
+    const dx=b.x-a.x, dy=b.y-a.y, L=Math.hypot(dx,dy)||1; return {nx:-dy/L,ny:dx/L}; };
+  const limb3F=(a,j,b,w0,wj,w1,b1,b2,col,lit,outline)=>{ const n=limb3(a,j,b,w0,wj,w1,b1,b2); if(outline){ c.strokeStyle=OL; c.lineWidth=2.2; c.stroke(); return; }
+    const W=Math.max(w0,wj)*s*0.6, mx=(a.x+b.x)/2, my=(a.y+b.y)/2, g=c.createLinearGradient(mx+n.nx*W,my+n.ny*W,mx-n.nx*W,my-n.ny*W);
+    g.addColorStop(0,lit?shade(col,0.16):col); g.addColorStop(0.45,col); g.addColorStop(1,shade(col,-0.24)); c.fillStyle=g; c.fill(); };
+  const limbO=(a,b,w0,w1,bul)=>{ limbPath(a,b,w0,w1,bul); c.strokeStyle=OL; c.lineWidth=2.2; c.stroke(); };
+  const limbF=(a,b,w0,w1,bul,col,lit)=>{ const n=limbPath(a,b,w0,w1,bul); const g=c.createLinearGradient(a.x+n.nx*w0*s*0.5,a.y+n.ny*w0*s*0.5,a.x-n.nx*w0*s*0.5,a.y-n.ny*w0*s*0.5);
+    g.addColorStop(0,lit?shade(col,0.16):col); g.addColorStop(0.45,col); g.addColorStop(1,shade(col,-0.24)); c.fillStyle=g; c.fill(); };
   const legPts=(L)=>{ const k=limb(hip,L[0],33*s*LG), an=limb(k,L[0]-L[1],32*s*LG); return {k,an}; };
   const armPts=(A,off)=>{ const o={x:sh.x+off*s*B.torso,y:sh.y+2*s}; const e=limb(o,A[0],24*s), hnd=limb(e,A[0]+A[1],22*s); return {o,e,h:hnd}; };
   const shoe=shopItem('shoes',p.cos.shoes), knee=shopItem('knee',p.cos.knee), wb=shopItem('wrist',p.cos.wrist);
   const drawLeg=(L,dark)=>{
     const {k,an}=legPts(L), sk=dark?skinD:skin;
     const mid={x:lerp(hip.x,k.x,0.55),y:lerp(hip.y,k.y,0.55)};
-    segO(hip,k,10*LW); segO(k,an,6.2*LW);
-    segF(hip,k,10*LW,dark?shade(K.shorts,-0.25):K.shorts); segF(mid,k,7.8*LW,sk,dark?null:skinL); segF(k,an,6.2*LW,sk,dark?null:skinL);
+    if(HQ2){ const mt={x:lerp(hip.x,k.x,0.4),y:lerp(hip.y,k.y,0.4)}, st_={x:lerp(hip.x,k.x,0.62),y:lerp(hip.y,k.y,0.62)}; limbO(hip,st_,11.4*LW,10*LW,0.8*LW); limb3F(mt,k,an,9.6*LW,7.6*LW,5*LW,0.6*LW,1.6*LW,null,false,true); limb3F(mt,k,an,9.6*LW,7.6*LW,5*LW,0.6*LW,1.6*LW,sk,!dark); limbF(hip,st_,11.4*LW,10*LW,0.8*LW,dark?shade(K.shorts,-0.25):K.shorts,!dark); }
+    else { segO(hip,k,10*LW); segO(k,an,6.2*LW);
+    segF(hip,k,10*LW,dark?shade(K.shorts,-0.25):K.shorts); segF(mid,k,7.8*LW,sk,dark?null:skinL); segF(k,an,6.2*LW,sk,dark?null:skinL); }
     const sockTop={x:lerp(k.x,an.x,0.62),y:lerp(k.y,an.y,0.62)}; flat(sockTop,an,6.6*LW,dark?'#cbd5e1':'#f8fafc');
     if(knee.id!=='none'){ c.fillStyle=dark?shade(cosColor('knee',p),-0.25):cosColor('knee',p); c.strokeStyle=OL; c.lineWidth=1; c.beginPath(); c.ellipse(k.x+1.5*s,k.y+1*s,5.2*s*LW,6.2*s,L[0],0,7); c.fill(); c.stroke(); }
     const toe={x:an.x+12*s,y:an.y+2*s};
@@ -2363,8 +2381,9 @@ function drawPlayer(c,p,opts){
   const drawArm=(A,off,dark)=>{
     const {o,e,h}=armPts(A,off), sk=dark?skinD:skin;
     const sl={x:lerp(o.x,e.x,0.4),y:lerp(o.y,e.y,0.4)};
-    segO(o,sl,9*LW); segO(o,e,6.6*LW); segO(e,h,5.4*LW);
-    segF(o,e,6.6*LW,sk,dark?null:skinL); segF(e,h,5.4*LW,sk,dark?null:skinL); segF(o,sl,9*LW,dark?shade(K.body,-0.25):K.body);
+    if(HQ2){ segO(o,sl,9*LW); limb3F(o,e,h,7.2*LW,5.6*LW,4.2*LW,1.1*LW,0.9*LW,null,false,true); limb3F(o,e,h,7.2*LW,5.6*LW,4.2*LW,1.1*LW,0.9*LW,sk,!dark); segF(o,sl,9*LW,dark?shade(K.body,-0.25):K.body); }
+    else { segO(o,sl,9*LW); segO(o,e,6.6*LW); segO(e,h,5.4*LW);
+    segF(o,e,6.6*LW,sk,dark?null:skinL); segF(e,h,5.4*LW,sk,dark?null:skinL); segF(o,sl,9*LW,dark?shade(K.body,-0.25):K.body); }
     if(wb.id!=='none'){ const w0={x:lerp(e.x,h.x,0.72),y:lerp(e.y,h.y,0.72)}, w1={x:lerp(e.x,h.x,0.9),y:lerp(e.y,h.y,0.9)}; flat(w0,w1,6.6*LW,dark?shade(cosColor('wrist',p),-0.25):cosColor('wrist',p)); }
     c.fillStyle=sk; c.strokeStyle=OL; c.lineWidth=1.2; c.beginPath(); c.ellipse(h.x,h.y,3.6*s*LW,3.2*s,A[0]+A[1],0,7); c.fill(); c.stroke();
     return h;
@@ -6916,7 +6935,7 @@ drawStrand=function(c,p,st,i,r,hx,hy,col){
   c.strokeStyle=rgba(shade(col,-0.62),0.55); c.lineWidth=0.75; c.stroke();
   if(GQ>=2){ c.strokeStyle=rgba(shade(col,0.55),0.28); c.lineWidth=Math.max(0.6,w*0.16); c.beginPath(); c.moveTo(rx+nx*0.8,ry+ny*0.8); c.bezierCurveTo(c1x+nx*0.7,c1y+ny*0.7,c2x+n2x*0.8,c2y+n2y*0.8,tx,ty); c.stroke(); }
   // clumped sub-strands for texture
-  if(Lr>r*0.35&&GQ>=1){ c.save(); c.clip(); c.lineWidth=Math.max(0.5,w*0.12); for(const f of [-0.45,0.35]){ c.strokeStyle=rgba(shade(col,f<0?-0.45:0.3),0.45); c.beginPath(); c.moveTo(rx+nx*f,ry+ny*f); c.bezierCurveTo(c1x+nx*f*0.8,c1y+ny*f*0.8,c2x+n2x*f,c2y+n2y*f,tx,ty); c.stroke(); } c.restore(); }
+  if(Lr>r*0.35&&GQ>=1){ c.lineWidth=Math.max(0.5,w*0.12); for(const f of [-0.3,0.25]){ c.strokeStyle=rgba(shade(col,f<0?-0.45:0.3),0.45); c.beginPath(); c.moveTo(rx+nx*f,ry+ny*f); c.bezierCurveTo(c1x+nx*f*0.8,c1y+ny*f*0.8,c2x+n2x*f,c2y+n2y*f,tx,ty); c.stroke(); } }
   if(i%2===0&&Lr>r*0.5){ c.strokeStyle='rgba(255,255,255,0.26)'; c.lineWidth=Math.max(0.8,w*0.2); c.beginPath(); c.moveTo(lerp(rx,c1x,0.4),lerp(ry,c1y,0.4)); c.quadraticCurveTo(c1x,c1y,lerp(c1x,c2x,0.6),lerp(c1y,c2y,0.6)); c.stroke(); }
   if(dye==='streaks'&&i%3===0){ c.strokeStyle=p.def.hairColor2||'#fff'; c.lineWidth=Math.max(1,w*0.4); c.beginPath(); c.moveTo(rx,ry); c.bezierCurveTo(c1x,c1y,c2x,c2y,tx,ty); c.stroke(); }
   if(p.flowT>0){ c.save(); c.globalCompositeOperation='lighter'; c.strokeStyle=rgba(flowIris(p),0.4); c.lineWidth=1.2; c.beginPath(); c.moveTo(c2x,c2y); c.lineTo(tx,ty); c.stroke(); c.restore(); }
@@ -7025,7 +7044,7 @@ function renderStyleTab(){ const el=$('edPanel'), d=edDef(), cust=!!edDraft, an=
    <div class="field"><label>FLOW aura</label><div class="flex gap-2">${sel8('sFa',FLOW_AURAS.map(a=>[a[0],a[1]]),d.flowAura||'classic')}${colIn('sFaC',d.flowCol,(FA_BY[d.flowAura||'classic']||[])[3])}</div></div>
    <div class="field"><label>Eye aura</label><div class="flex gap-2">${sel8('sEa',EYE_AURAS,d.eyeAura||'none')}${colIn('sEaC',d.eyeAuraCol,d.eyes||'#38bdf8')}</div></div>
    <div class="field"><label>FLOW eyes</label><div class="flex gap-2">${sel8('sFe',FLOW_EYES.map(a=>[a[0],a[1]]),d.flowEyes||'classic')}${colIn('sFeC',d.flowEyeCol,(FE_BY[d.flowEyes||'classic']||[])[2])}</div></div>
-   ${['idle','run','jump','spike','celeb'].map(k=>`<div class="field"><label>${({idle:'Idle stance',run:'Run style',jump:'Jump style',spike:'Spike swing',celeb:'Celebration'})[k]}</label>${sel8('sAn_'+k,ANIM_OPTS[k],an[k]||'default')}</div>`).join('')}
+   ${['idle','run','jump','spike','celeb','serve','receive','block','dive','land'].map(k=>`<div class="field"><label>${({idle:'Idle stance',run:'Run style',jump:'Jump style',spike:'Spike swing',celeb:'Celebration',serve:'Serve toss',receive:'Receive',block:'Block',dive:'Dive',land:'Landing'})[k]}</label>${sel8('sAn_'+k,ANIM_OPTS[k],an[k]||'default')}</div>`).join('')}
    <div class="field sm:col-span-2 flex flex-wrap gap-2"><button class="tab" id="pvCeleb">▶ CELEBRATE</button><button class="tab" id="pvFlow">👁️ PREVIEW FLOW</button><button class="tab" id="pvAura">✨ FULL GAUGE</button><button class="tab" id="pvSpike">▶ SPIKE</button><button class="tab" id="pvRun">▶ RUN</button><button class="tab" id="sReset">RESET STYLE</button></div>
   </div>`;
   const on=(id,fn)=>{ const e=$(id); if(e) e.onchange=ev=>{ fn(ev.target.value); renderStyleTab(); edCardUpd(); }; };
@@ -7034,7 +7053,7 @@ function renderStyleTab(){ const el=$('edPanel'), d=edDef(), cust=!!edDraft, an=
   on('sFa',v=>{ styleSet('flowAura',v); styleSet('flowCol',null); }); on('sFaC',v=>styleSet('flowCol',v));
   on('sEa',v=>styleSet('eyeAura',v)); on('sEaC',v=>styleSet('eyeAuraCol',v));
   on('sFe',v=>{ styleSet('flowEyes',v); styleSet('flowEyeCol',null); }); on('sFeC',v=>styleSet('flowEyeCol',v));
-  for(const k of ['idle','run','jump','spike','celeb']) on('sAn_'+k,v=>{ const a=Object.assign({},edDef().anim||{}); a[k]=v; styleSet('anim',a); });
+  for(const k of ['idle','run','jump','spike','celeb','serve','receive','block','dive','land']) on('sAn_'+k,v=>{ const a=Object.assign({},edDef().anim||{}); a[k]=v; styleSet('anim',a); });
   const pv=()=>edPv&&edPv.p;
   $('pvCeleb').onclick=()=>{ setTimeout(()=>{ if(pv()) pv().celebT=2.2; },60); };
   $('pvFlow').onclick=()=>{ setTimeout(()=>{ const p=pv(); if(p){ p.flowT=p.flowT>0?0:9999; p.eyeTrail=[]; } },60); };
@@ -7349,6 +7368,322 @@ renderSettings=function(){ _rs9(); const S=$('scrSettings'); const col=S.querySe
   $('st_assist').value=set8('tAssist'); $('st_assist').onchange=e=>setSet8('tAssist',e.target.value);
   const tg=(id,k)=>{ $(id).onclick=()=>{ setSet8(k,!set8(k)); applyT9(); renderSettings(); }; };
   tg('st_tleft','tLeft'); tg('st_tfixed','tFixed'); tg('st_tflick','tFlick'); tg('st_hap','tHaptic'); };
+</script>
+<script>
+'use strict';
+/* =========================================================================
+   v10 — SKILLS: 4 categories with their own mechanics (front-row spike,
+   back-row attack, setter, block) · player-controlled setting ·
+   the Minus Tempo duo
+   ========================================================================= */
+const SKILLS={
+  // ---------- front-row spikes ----------
+  wallbreak:{cat:'SPIKE',name:'Wall Smasher',jp:'壁砕き',icon:'🧱',desc:'Smashes through the block. A blocker in the way gets knocked back and the ball keeps going.'},
+  linedrill:{cat:'SPIKE',name:'Line Drill',jp:'直線',icon:'📏',desc:'Laser down the sideline into the deep corner. Defenders on the line react 0.15s late.'},
+  feintcutter:{cat:'SPIKE',name:'Feint Cutter',jp:'フェイント斬り',icon:'🪶',desc:'Full fake swing, then a soft drop right behind the block. Defenders have already backed off.'},
+  razorcut:{cat:'SPIKE',name:'Razor Cut',jp:'剃刀',icon:'🔪',desc:'Extreme short cross that bends inside the attack line.'},
+  skyhammer:{cat:'SPIKE',name:'Sky Hammer',jp:'天槌',icon:'🔨',desc:'Hangs at the top of the jump and hammers almost straight down. Hard to block.'},
+  toolbomb:{cat:'SPIKE',name:'Tool Bomb',jp:'ツール爆弾',icon:'💣',desc:'Aims for the blocker\'s fingertips. Any block touch sends it flying out of the court.'},
+  minus:{cat:'SPIKE',name:'Minus Tempo',jp:'マイナス・テンポ',icon:'⚡',desc:'Needs a setter with Minus Set. You jump before the set; the ball arrives at your hand at the peak. Unblockable.',duo:'minusset'},
+  // ---------- back-row attacks ----------
+  pipecannon:{cat:'BACK',name:'Pipe Cannon',jp:'パイプ砲',icon:'💥',desc:'Back-row bomb: 35% faster and heavy. Digging it is brutal.'},
+  skypipe:{cat:'BACK',name:'Sky Pipe',jp:'天空パイプ',icon:'🪽',desc:'Broad jump from deep, steep hit that dives just past the attack line.'},
+  rainbow:{cat:'BACK',name:'Rainbow Pipe',jp:'虹パイプ',icon:'🌈',desc:'Lofted arc that drops on the back line behind the defenders.'},
+  bicblitz:{cat:'BACK',name:'Bic Blitz',jp:'ビック',icon:'🏹',desc:'Back-row quick: flat and fast. The block usually has no time to form.'},
+  phantompipe:{cat:'BACK',name:'Phantom Pipe',jp:'幻パイプ',icon:'👻',desc:'Blockers bite on a front-row decoy. Unblockable, defenders react late.'},
+  backdrive:{cat:'BACK',name:'Back-Row Drive',jp:'ドライブ',icon:'🌀',desc:'Topspin drive that skims the net and dives into mid-court.'},
+  // ---------- setter ----------
+  perfectset:{cat:'SET',name:'Precision Set',jp:'精密トス',icon:'🎯',desc:'A perfect set: the next attack is 12% stronger and harder to block.'},
+  tempostrike:{cat:'SET',name:'Tempo Strike',jp:'速攻',icon:'⏱️',desc:'A set so fast the block never forms.'},
+  nolook:{cat:'SET',name:'No-Look Set',jp:'ノールック',icon:'🙈',desc:'Eyes on one hitter, ball to another. Blockers jump at the wrong player.'},
+  setdump:{cat:'SET',name:'Phantom Dump',jp:'幻ツー',icon:'🤚',desc:'Fakes the set and pushes the ball over. Defenders freeze.'},
+  jumpbackset:{cat:'SET',name:'Jump Back-Set',jp:'バックトス',icon:'↩️',desc:'Fast set behind your head to the back-row hitter. Splits the double block.'},
+  overload:{cat:'SET',name:'Overload',jp:'オーバーロード',icon:'🌪️',desc:'Every hitter approaches at once. The block is cut in half.'},
+  minusset:{cat:'SET',name:'Minus Set',jp:'マイナス・トス',icon:'⚡',desc:'Needs a hitter with Minus Tempo. Sets the ball straight into their hand at the peak of a jump they already started.',duo:'minus'},
+  // ---------- block ----------
+  killblock:{cat:'BLOCK',name:'Kill Block',jp:'キルブロック',icon:'✋',desc:'+25% stuff chance. Stuffs are driven straight into the floor.'},
+  commitwall:{cat:'BLOCK',name:'Commit Wall',jp:'コミット',icon:'🧱',desc:'Wider block window: you close faster and cover more of the net.'},
+  swingblock:{cat:'BLOCK',name:'Swing Block',jp:'スイング',icon:'🙌',desc:'Full arm-swing block: +12% block and the ball can\'t be tooled off you.'},
+  softredirect:{cat:'BLOCK',name:'Soft Redirect',jp:'ワンタッチ',icon:'🫳',desc:'Guaranteed soft block that drops perfectly to your setter.'},
+  readshadow:{cat:'BLOCK',name:'Read Shadow',jp:'読み',icon:'🔍',desc:'Reads the hitter. +20% block, +40% if they repeat the same shot.'},
+  ghostblock:{cat:'BLOCK',name:'Ghost Block',jp:'幻影ブロック',icon:'💨',desc:'Teleports to the net and blocks from anywhere on your side.'},
+  trident:{cat:'BLOCK',name:'Triple Wall',jp:'三枚',icon:'🔱',desc:'Every teammate near the net jumps with you. +10% block.'}
+};
+const SKILL_CATS={SPIKE:'Front-row Spike',BACK:'Back-row Attack',SET:'Setter',BLOCK:'Block'};
+const SKILL_COST=40, SKILL_CD=9;
+function skillsOf(d){ const s=Object.assign({},d.skills||{}), h=hashStr(d.id||'x');
+  const pick=(cat,role)=>{ if(s[cat]&&SKILLS[s[cat]]) return; const L=Object.keys(SKILLS).filter(k=>SKILLS[k].cat===cat&&!SKILLS[k].duo); s[cat]=L[(h>>>({SPIKE:0,BACK:3,SET:6,BLOCK:9})[cat])%L.length]; };
+  pick('SPIKE'); pick('BACK'); pick('SET'); pick('BLOCK'); return s; }
+function skillCtx(p){ // which category fires right now
+  if(!p.onGround&&p.airIntent==='block') return 'BLOCK';
+  const T=team(p.side), n=(ball.lastSide===p.side?T.touches:0)+1;
+  if(n===2&&ball.lastSide===p.side) return 'SET';
+  return (isBack(p)||Math.abs(p.x-NET_X)>215)?'BACK':'SPIKE'; }
+function canSkill(p){ return p.gauge>=SKILL_COST&&!(p.skillCD>0); }
+function useSkill(p,cat){ const id=skillsOf(p.def)[cat]; if(!id) return null; p.gauge=Math.max(0,p.gauge-SKILL_COST); p.skillCD=SKILL_CD; p.skillArmed=false; p.skillA={id,t:0}; skillBanner(p,id); return id; }
+function skillBanner(p,id){ const S=SKILLS[id]; fx.text(p.x,p.y-p.h-62,S.icon+' '+S.name.toUpperCase(),'#fde047',22); fx.ring(p.x,p.y-p.h*0.6,'#fde047',90);
+  if(game.mode==='demo') return; if(p.side==='L'||Math.random()<0.5){ const e=$('cutin'); $('cutEmoji').textContent=S.icon; $('cutTitle').textContent=S.name; $('cutJp').textContent=p.name.toUpperCase()+' · '+S.jp; e.style.setProperty('--c1',p.kit.c1); e.style.setProperty('--c2',p.kit.c2); e.classList.add('on'); clearTimeout(skillBanner.t); skillBanner.t=setTimeout(()=>e.classList.remove('on'),650); } }
+function aiWantsSkill(p,cat){ if(p.ctrl!=='ai'||!canSkill(p)) return false; const id=skillsOf(p.def)[cat]; if(!id||SKILLS[id].duo) return false;
+  const T=team(p.side), O=team(opp(p.side)), clutch=O.score>=game.target-2||T.score>=game.target-2; return Math.random()<(0.18+game.diff*0.06+(clutch?0.2:0))*(0.6+p.s.IQ*0.05); }
+/* key + touch binding */
+Object.assign(KEYMAP,{KeyE:'skill',KeyR:'set'}); if(typeof KEYMAP_DEFAULT!=='undefined') Object.assign(KEYMAP_DEFAULT,{KeyE:'skill',KeyR:'set'});
+if(typeof CTRL_ACTIONS!=='undefined') CTRL_ACTIONS.splice(6,0,['skill','Arm your Skill (spike / back-row / set / block, by situation)'],['set','Set: jump-set in the air · perfect-set timing on the ground']);
+const _press10=press;
+press=function(k){ const h=game.human, inM=h&&$('menu').classList.contains('hidden')&&!game.paused;
+  if(k==='skill'&&inM){ if(h.skillArmed){ h.skillArmed=false; fx.text(h.x,h.y-h.h-50,'SKILL OFF','#94a3b8',16); return; } if(!canSkill(h)){ fx.text(h.x,h.y-h.h-50,h.skillCD>0?'SKILL '+Math.ceil(h.skillCD)+'s':'NEED 40 GAUGE','#94a3b8',16); return; }
+    h.skillArmed=true; const c=skillCtx(h), id=skillsOf(h.def)[c]; fx.text(h.x,h.y-h.h-50,'SKILL READY · '+SKILLS[id].name,'#fde047',18); sfx.ui&&sfx.ui(); return; }
+  if(k==='set'&&inM){ keys.set=true; h.setBuf=0.3; return; }
+  _press10(k); };
+const _rel10=release; release=function(k){ if(k==='set'){ keys.set=false; return; } _rel10(k); };
+/* tick timers */
+const _sp10=stepPlayer; stepPlayer=function(p){ _sp10(p); p.skillCD=Math.max(0,(p.skillCD||0)-DT); p.setBuf=Math.max(0,(p.setBuf||0)-DT); if(p.skillA){ p.skillA.t+=DT; if(p.skillA.t>0.6) p.skillA=null; }
+  if(p.minusAuto&&!p.onGround&&ball.live&&inZone(p.spikeZone())){ p.spikeBuf=0.1; } if(p.onGround&&p.minusAuto&&p.state!=='jump') p.minusAuto=false; };
+/* ---------------- attack skills ---------------- */
+function enemyDefs(p){ return team(opp(p.side)).players; }
+function freeze(p,s){ for(const o of enemyDefs(p)) if(o.ctrl==='ai') o.reactLeft+=s; }
+const _da10=doAttack;
+doAttack=function(p,kind){ const pre={setPerf:ball.perfectSet,noBlock:ball.noBlockNext,late:ball.lateBlockNext,split:ball.splitBlockNext,minus:ball.minusSet&&ball.minusSet===p};
+  ball.noBlock=false; ball.smash=false; ball.perfectSet=false; ball.noBlockNext=false; ball.lateBlockNext=false; ball.splitBlockNext=false; ball.minusSet=null;
+  const c=Math.abs(p.x-NET_X)>215||isBack(p)?'BACK':'SPIKE'; let id=null;
+  if(pre.minus){ id='minus'; p.gauge=Math.max(0,p.gauge-10); p.skillA={id,t:0}; skillBanner(p,'minus'); }
+  else if(p.skillArmed&&canSkill(p)&&kind!=='DUMP'&&kind!=='SPECIAL') id=useSkill(p,c);
+  else if(kind!=='SPECIAL'&&kind!=='DUMP'&&kind!=='ROLL'&&aiWantsSkill(p,c)) id=useSkill(p,c);
+  _da10(p,kind);
+  if(!ball.live) return;
+  const sp=Math.hypot(ball.vx,ball.vy)||900, d=p.dir, scale=k=>{ ball.vx*=k; ball.vy*=k; };
+  if(pre.setPerf){ scale(1.12); ball.blockMod=(ball.blockMod||0)-0.08; }
+  if(pre.noBlock) ball.noBlock=true; if(pre.late) ball.blockMod=(ball.blockMod||0)-0.25; if(pre.split) ball.blockMod=(ball.blockMod||0)-0.15;
+  switch(id){
+    case 'minus': ball.noBlock=true; aimSpike(ball,NET_X+d*rand(230,420),FLOOR-BALL_R,Math.max(sp,1250)*1.15,1.3); freeze(p,0.18); fx.flash&&fx.flash('#fde047',0.25); speedlines(0.35); break;
+    case 'wallbreak': ball.smash=true; scale(1.15); ball.heavy=true; break;
+    case 'linedrill': aimSpike(ball,NET_X+d*rand(585,625),FLOOR-BALL_R,sp*1.22,1.05); freeze(p,0.15); break;
+    case 'feintcutter': launchTo(ball,NET_X+d*rand(45,85),FLOOR-BALL_R,Math.min(ball.y-30,NET_TOP-45),1); ball.kind='FEINT'; freeze(p,0.32); for(const o of enemyDefs(p)) if(o.ctrl==='ai') o.homeX=NET_X+d*Math.max(Math.abs(o.homeX-NET_X),420); break;
+    case 'razorcut': aimSpike(ball,NET_X+d*rand(110,160),FLOOR-BALL_R,sp*1.1,1.6); ball.ax=-d*120; ball.blockMod=(ball.blockMod||0)-0.08; break;
+    case 'skyhammer': p.hangT=0.25; aimSpike(ball,NET_X+d*rand(200,300),FLOOR-BALL_R,sp*1.28,2.1); ball.blockMod=(ball.blockMod||0)-0.15; break;
+    case 'toolbomb': ball.wipe=true; scale(1.12); break;
+    case 'pipecannon': aimSpike(ball,NET_X+d*rand(480,600),FLOOR-BALL_R,sp*1.35,1.1); ball.heavy=true; fx.shake(8); break;
+    case 'skypipe': p.hangT=0.3; aimSpike(ball,NET_X+d*rand(240,320),FLOOR-BALL_R,sp*1.18,1.8); break;
+    case 'rainbow': launchTo(ball,NET_X+d*rand(590,628),FLOOR-BALL_R,NET_TOP-rand(260,320),1); ball.kind='ROLL'; freeze(p,0.22); break;
+    case 'bicblitz': aimSpike(ball,NET_X+d*rand(330,520),FLOOR-BALL_R,sp*1.25,0.85); if(Math.random()<0.65) ball.noBlock=true; break;
+    case 'phantompipe': ball.noBlock=true; freeze(p,0.12); break;
+    case 'backdrive': aimSpike(ball,NET_X+d*rand(330,450),FLOOR-BALL_R,sp*1.2,2.3); break;
+  }
+  if(id){ ball.blockChecked=false; if(ball.over) sendOverFix(p); }
+};
+function sendOverFix(p){ const lx=landX(ball); if(game.aimLine){ game.aimLine.x1=lx; game.aimLine.b={x:ball.x,y:ball.y,vx:ball.vx,vy:ball.vy,gMul:ball.gMul}; } }
+/* ---------------- block skills ---------------- */
+const _bc10=blockCheck;
+blockCheck=function(){
+  if(ball.blockChecked||!ball.lastSide) return _bc10();
+  if(ball.noBlock){ for(const p of game.players) if(!p.onGround&&p.airIntent==='block'&&p.side!==ball.lastSide&&Math.abs(ball.x-NET_X)<34){ fx.text(NET_X,p.y-p.standReach-40,'TOO FAST!','#fde047',20); ball.blockChecked=true; return; } return; }
+  for(const p of game.players){ if(p.onGround||p.airIntent!=='block'||p.side===ball.lastSide) continue; const top=p.y-p.standReach-8;
+    if(Math.abs(ball.x-NET_X)>32+p.M.blockWin*0.4||ball.y<top-BALL_R||ball.y>top+76+p.M.blockWin) continue;
+    if(ball.smash){ ball.blockChecked=true; p.setState('blown'); p.blownT=0.8; p.recoverT=Math.max(p.recoverT,0.8); p.vx=-p.dir*-300; fx.text(NET_X,top-36,'SMASHED THROUGH!','#fca5a5',26); fx.burst(ball.x,ball.y,'#ffffff',22,520); fx.shake(12); return; }
+    if(p.blockSkill==='softredirect'){ ball.blockChecked=true; p.blockSkill=null; const T=team(p.side), s=T.players[1]||T.players[0]; ball.lastSide=p.side; ball.lastPlayer=null; T.touches=0; team(opp(p.side)).touches=0; ball.over=false; game.incoming=null;
+      ball.x=NET_X-p.dir*16; launchTo(ball,NET_X-p.dir*115,FLOOR-s.h*1.12,FLOOR-rand(360,400)*VS,1); T.next=s; ball.noRescue=false; fx.text(NET_X,top-30,'SOFT REDIRECT!','#a5f3fc',22); sfx.hit(0.4); return; }
+  }
+  return _bc10(); };
+const _bch10=blockChance;
+blockChance=function(p,A){ let v=_bch10(p,A); const b=p.blockSkill;
+  if(b==='killblock') v+=0.25; if(b==='swingblock'){ v+=0.12; ball.wipe=false; } if(b==='commitwall') v+=0.06; if(b==='trident') v+=0.1;
+  if(b==='readshadow'){ v+=0.2; const T=team(A?A.side:opp(p.side)); if(T&&T.lastKinds&&T.lastKinds.length>=2&&T.lastKinds[T.lastKinds.length-1]===T.lastKinds[T.lastKinds.length-2]) v+=0.2; }
+  return clamp(v,0.02,0.95); };
+const _jump10=jump;
+jump=function(p,intent,leap){ const was=p.onGround; let ghost=false;
+  if(intent==='block'||(isH(p)&&Math.abs(p.x-NET_X)<130&&ball.lastSide&&ball.lastSide!==p.side)){
+    const want=(isH(p)&&p.skillArmed&&canSkill(p))||(!isH(p)&&intent==='block'&&aiWantsSkill(p,'BLOCK'));
+    if(want){ const id=useSkill(p,'BLOCK'); p.blockSkill=id;
+      if(id==='ghostblock'){ ghost=true; fx.burst(p.x,p.y-p.h*0.5,'#e0e7ff',14,300); p.x=NET_X-p.dir*30; p.gh=[]; fx.ring(p.x,p.y-p.h*0.5,'#c7d2fe',80); }
+      if(id==='commitwall'){ p.M.blockWin+=40; setTimeout(()=>{ p.M.blockWin=Math.max(0,p.M.blockWin-40); },900); }
+      if(id==='trident') for(const q of team(p.side).players) if(q!==p&&q.onGround&&Math.abs(q.x-NET_X)<220&&q.ctrl==='ai'){ q.x=clamp(q.x,NET_X-(p.side==='L'?200:-30),NET_X+(p.side==='L'?-30:200)); _jump10(q,'block',false); q.blockSkill='trident'; }
+    } }
+  _jump10(p,intent,leap); if(was&&!p.onGround&&!p.blockSkill) {} };
+const _sp10b=stepPlayer; stepPlayer=function(p){ const g=p.onGround; _sp10b(p); if(!g&&p.onGround) p.blockSkill=null; };
+const _bc10b=blockCheck; blockCheck=function(){ const before=ball.kind; _bc10b(); if(ball.kind==='BLOCK'&&before!=='BLOCK'){ const b=ball.lastPlayer; if(b&&b.blockSkill==='killblock'){ ball.vx*=1.15; ball.vy=Math.abs(ball.vy)*1.4+200; fx.text(NET_X,b.y-b.h-40,'KILL BLOCK!','#fff',26); } } };
+/* ---------------- setter skills + human setting ---------------- */
+const _pst10=pickSetTarget;
+pickSetTarget=function(p){ const T=team(p.side), P=T.players;
+  if(isH(p)){ const k=KS(p), fwd=p.dir>0?k.right:k.left, back=p.dir>0?k.left:k.right; game.hSet=null;
+    const others=P.filter(q=>q!==p&&q.recoverT<=0.05);
+    if(!others.length) return _pst10(p);
+    const front=others.filter(q=>!isBack(q)).sort((a,b)=>Math.abs(a.x-NET_X)-Math.abs(b.x-NET_X)), backs=others.filter(q=>isBack(q));
+    if(k.up){ game.hSet='quick'; return (others.find(q=>q.def.role==='MB')||front[0]||others[0]); }
+    if(k.down&&backs.length){ game.hSet='pipe'; return backs[0]; }
+    if(back){ game.hSet='shoot'; return (front[1]||backs[0]||front[0]||others[0]); }
+    if(fwd){ game.hSet='high'; return front[0]||others[0]; }
+    game.hSet='high'; return _pst10(p); }
+  return _pst10(p); };
+const _tempo10=aiTempo; aiTempo=function(p,a){ if(isH(p)&&game.hSet) return game.hSet; return _tempo10(p,a); };
+const _ds10=doSet;
+doSet=function(p,z){ const T=team(p.side), O=team(opp(p.side)); let id=null;
+  const perfect=isH(p)&&(p.setBuf>0||keys.set);
+  if(isH(p)&&p.skillArmed&&canSkill(p)) id=useSkill(p,'SET'); else if(aiWantsSkill(p,'SET')) id=useSkill(p,'SET');
+  // Minus Tempo duo
+  const mHit=T.players.find(q=>q!==p&&skillsOf(q.def).SPIKE==='minus'&&q.recoverT<=0&&q.onGround);
+  const duo=skillsOf(p.def).SET==='minusset'&&mHit&&!isBack(mHit)&&((isH(mHit)&&mHit.skillArmed)||(isH(p)&&p.skillArmed)||(!isH(mHit)&&!isH(p)&&Math.random()<0.45)||(isH(p)&&id==='minusset')||(isH(mHit)&&Math.random()<0.2&&mHit.gauge>=10));
+  if(duo){ if(id!=='minusset'&&isH(p)) p.skillArmed=false; mHit.skillArmed=false; return minusTempo(p,mHit); }
+  if(id==='setdump'){ registerTouch(p); const d=p.dir; launchTo(ball,NET_X+d*rand(40,90),FLOOR-BALL_R,Math.min(ball.y-24,NET_TOP-40),1); sendOver(p,'DUMP',-0.25); freeze(p,0.25); p.setState('set'); p.swingT=0.25; p.st.assists+=0; ball.attacker=p; return; }
+  if(id==='jumpbackset'&&isH(p)) game.hSet='shoot';
+  _ds10(p,z);
+  const a=T.next;
+  if(perfect){ ball.perfectSet=true; fx.text(p.x,p.y-p.h-46,'PERFECT SET!','#86efac',20); }
+  switch(id){
+    case 'perfectset': ball.perfectSet=true; break;
+    case 'tempostrike': ball.noBlockNext=true; ball.gMul=Math.max(ball.gMul||1,1); break;
+    case 'nolook': ball.lateBlockNext=true; O.dbl=false; freeze(p,0.15); break;
+    case 'jumpbackset': O.dbl=false; ball.splitBlockNext=true; break;
+    case 'overload': ball.splitBlockNext=true; for(const q of T.players) if(q!==p&&q!==a&&!isH(q)&&q.onGround){ q.plan='decoy'; q.decoyJumpAt=game.time+0.35; } break;
+  }
+};
+function minusTempo(s,h){ registerTouch(s); const T=team(s.side), d=h.dir; ball.setBy=s; T.next=h; ball.setTempo='quick';
+  h.x=clamp(NET_X-d*rand(70,100),sideMin(h.side),sideMax(h.side)); h.plan=null; h.planSpecial=false; h.minusAuto=true;
+  _jump10(h,'attack',false); h.airIntent='attack';
+  const tA=h.v0(false)/GP*0.95, tx=h.x+d*18, ty=FLOOR-h.reachTop(false)+12, g=bg(ball); ball.gMul=1;
+  ball.vx=(tx-ball.x)/tA; ball.vy=(ty-ball.y-0.5*bg(ball)*tA*tA)/tA; ball.minusSet=h;
+  s.setState('set'); s.swingT=0.25; sfx.set(); fx.text(s.x,s.y-s.h-40,'MINUS!','#fde047',22); speedlines(0.25); game.setCue=null;
+  for(const o of team(opp(s.side)).players) if(o.ctrl==='ai'){ o.jumpAt=-1; o.reactLeft+=0.2; }
+  team(opp(s.side)).dbl=false; }
+/* human jump-set: in the air on the 2nd touch, press SET (R) */
+const _chk10=checkContacts;
+checkContacts=function(){ const h=game.human;
+  if(h&&ball.live&&!ball.held&&!ball.serveToss&&!h.onGround&&(keys.set||h.setBuf>0)&&ball.lastSide===h.side&&team(h.side).touches===1&&sideOf(ball.x)===h.side&&ball.lastPlayer!==h&&inZone(h.spikeZone())){
+    h.setBuf=0; const z='over'; doSet(h,z); ball.blockChecked=true; fx.text(h.x,h.y-h.h-40,'JUMP SET!','#a5f3fc',20); ball.perfectSet=true; team(opp(h.side)).dbl=false; return; }
+  _chk10(); };
+/* setter indicator: where the pass will come down when you're the setter */
+const _di10=drawIndicators;
+drawIndicators=function(c,dt){ _di10(c,dt); const h=game.human; if(!h||!ball.live||ball.held) return;
+  const T=team(h.side); if(T.next===h&&ball.lastSide===h.side&&T.touches===1&&ball.vy>-400){ const lx=landX(ball); c.save(); c.strokeStyle='rgba(134,239,172,.9)'; c.lineWidth=3; c.setLineDash([6,5]); c.beginPath(); c.ellipse(lx,FLOOR,26,7,0,0,7); c.stroke(); c.setLineDash([]);
+    c.font='900 14px Nunito, sans-serif'; c.textAlign='center'; c.fillStyle='#bbf7d0'; c.strokeStyle='#000'; c.lineWidth=3; const t='SET ▸ hold ↑ quick · → front · ← back · ↓ pipe · R perfect'; c.strokeText(t,lx,FLOOR-150); c.fillText(t,lx,FLOOR-150); c.restore(); }
+  if(h.skillArmed){ c.save(); c.font='900 13px Nunito, sans-serif'; c.textAlign='center'; c.fillStyle='#fde047'; c.strokeStyle='#000'; c.lineWidth=3; const id=skillsOf(h.def)[skillCtx(h)]; const t='⚡ '+SKILLS[id].name; c.strokeText(t,h.x,h.y-h.h-78); c.fillText(t,h.x,h.y-h.h-78); c.restore(); } };
+/* ---------------- the Minus Tempo duo joins Project APEX ---------------- */
+(function(){ const hairOf=(fam,i)=>{ const L=HAIR_DB.filter(x=>x.fam===fam); return (L[i]||L[0]||HAIR_DB[0]).id; }; const SK=SKIN;
+  const hay=proDef({id:'zx_hayate',name:'Hayate Jinbo',num:13,role:'WS',cm:166,st:[7,10,10,5,4,5,6,8],hair:hairOf('messy',3),hc:'#0f766e',skin:SK[3],eyes:'#f59e0b',sp:mv('thunder_flash'),pas:['Springheel','Rocket Start'],quote:'"Just put it where I\'m going. I\'ll be there first."',nat:'JP',build:'compact',persona:'speeddemon',eye:'round',aura:'a_light'});
+  const kan=proDef({id:'zx_kaname',name:'Kaname Shiraki',num:1,role:'S',cm:187,st:[6,7,8,7,10,6,8,10],hair:hairOf('long',3),hc:'#c4b5fd',skin:SK[0],eyes:'#1e1b4b',sp:mv('lunar_flash'),pas:['Setter Eye','Tempo Maestro'],quote:'"A set is a promise. I don\'t break promises."',nat:'JP',build:'lean',persona:'perfectionist',eye:'sharp',aura:'a_frost'});
+  Object.assign(hay,{hairDye:'tips',hairColor2:'#f8fafc',skills:{SPIKE:'minus',BACK:'bicblitz',SET:'perfectset',BLOCK:'ghostblock'},synergy:'Static Charge',playstyle:'ninjatempo',anim:{run:'sprint',celeb:'jumpclap'}});
+  Object.assign(kan,{skills:{SPIKE:'feintcutter',BACK:'rainbow',SET:'minusset',BLOCK:'readshadow'},synergy:'Catalyst',playstyle:'tempomaestro',anim:{idle:'calm',celeb:'bow'}});
+  const tide=(typeof ECLIPSE_TEAMS!=='undefined')&&ECLIPSE_TEAMS.find(t=>t.id==='tide'); const tt=findTeamRaw('tide');
+  for(const d of [hay,kan]){ d.team='tide'; if(tide&&!tide.players.some(q=>q.id===d.id)) tide.players.push(d); if(tt&&tt!==tide&&!tt.players.some(q=>q.id===d.id)) tt.players.push(d); }
+  if(typeof PRO_IDS!=='undefined'&&Array.isArray(PRO_IDS)) PRO_IDS.push('zx_hayate','zx_kaname');
+  if(typeof REL!=='undefined'){ REL.push(['zx_hayate','zx_kaname','bond','The Minus Tempo duo. They fought for a year before the first one ever connected.',[['zx_kaname','Don\'t look at the ball. Just jump.'],['zx_hayate','I never look. That\'s the point!']]],
+    ['zx_hayate','zx_yota','rival','Two speed players, one question: who is faster.',[['zx_yota','Your tempo is cute.'],['zx_hayate','My tempo is negative.']]],
+    ['zx_kaname','zx_haku','beef','Kaname thinks Haku\'s sets are lazy. Haku thinks Kaname is a control freak.',[['zx_haku','Still forcing your hitters to dance?'],['zx_kaname','At least mine score.']]]); }
+  if(typeof SYN_CAST!=='undefined') Object.assign(SYN_CAST,{zx_hayate:'Static Charge',zx_kaname:'Catalyst'});
+})();
+</script>
+<script>
+'use strict';
+/* =========================================================================
+   v10 — smarter AI (learns what scores, team attack patterns, defensive
+   shading) · new animation sets + skill animations · UI for skills,
+   setter position, touch SKILL/SET buttons
+   ========================================================================= */
+/* ---------------- AI learns which attacks work ---------------- */
+const _da10b=doAttack; doAttack=function(p,kind){ p.lastAtk={kind,t:game.time}; _da10b(p,kind); };
+function kRate(p,k){ const s=(p.kstat||{})[k]; if(!s) return 0.5; return (s.w+1)/(s.n+2); }
+const _ap10=awardPoint;
+awardPoint=function(w,r){ const A=ball.attacker, k=A&&A.lastAtk&&A.lastAtk.kind;
+  if(A&&k&&game.time-A.lastAtk.t<4){ A.kstat=A.kstat||{}; const s=A.kstat[k]||(A.kstat[k]={n:0,w:0}); s.n++; if(w===A.side) s.w++;
+    const T=team(A.side); if(T&&T.patLast){ T.patStat=T.patStat||{}; const q=T.patStat[T.patLast]||(T.patStat[T.patLast]={n:0,w:0}); q.n++; if(w===A.side) q.w++; T.patLast=null; }
+    // defensive memory: where this side's attacks land
+    const O=team(opp(A.side)); if(O&&game.landMark){ O.readDepth=O.readDepth||[]; O.readDepth.push(Math.abs(game.landMark.x-NET_X)); if(O.readDepth.length>6) O.readDepth.shift(); } }
+  _ap10(w,r); };
+const _ca10=chooseAttack;
+chooseAttack=function(p){ let k=_ca10(p); if(game.diff<1||['ROLL','DUMP','SPECIAL','METEOR'].includes(k)) return k;
+  const smart=0.35+game.diff*0.2; for(let i=0;i<3;i++){ const r=kRate(p,k); if(Math.random()<1-smart*(0.55-r)*2) return k; k=_ca10(p); } return k; };
+/* ---------------- team attack patterns ---------------- */
+const PATTERNS={outside:{name:'OUTSIDE',tempo:'high'},quick:{name:'QUICK ATTACK',tempo:'quick'},pipe:{name:'PIPE COMBO',tempo:'pipe'},xplay:{name:'X-PLAY',tempo:'shoot'},opposite:{name:'BACK-SET',tempo:'shoot'},overload:{name:'OVERLOAD',tempo:'high'}};
+function choosePattern(T){ const S=T.patStat||{}, L=Object.keys(PATTERNS); let best=null,bv=-1;
+  for(const id of L){ const s=S[id]||{n:0,w:0}; const v=(s.w+1)/(s.n+2)+Math.sqrt(Math.log((T.rallies9=(T.rallies9||0)+0)+3)/(s.n+1))*0.35+Math.random()*0.25; if(v>bv){ bv=v; best=id; } } return best; }
+const _pst10b=pickSetTarget;
+pickSetTarget=function(p){ const T=team(p.side), P=T.players; if(isH(p)||P.length<3||game.diff<1&&Math.random()<0.5) return _pst10b(p);
+  const pat=choosePattern(T); T.patLast=pat; T.rallies9=(T.rallies9||0)+1; T.patTempo=PATTERNS[pat].tempo;
+  const others=P.filter(q=>q!==p&&q.recoverT<=0.05&&q.onGround&&!isH(q)), hum=P.find(q=>isH(q)&&q!==p);
+  if(hum&&callOn(p.side,'setme')) { T.patTempo=null; return hum; }
+  const front=others.filter(q=>!isBack(q)), backs=others.filter(q=>isBack(q)), mb=others.find(q=>q.def.role==='MB');
+  let a=null;
+  if(pat==='quick') a=mb||front.sort((x,y)=>Math.abs(x.x-NET_X)-Math.abs(y.x-NET_X))[0];
+  else if(pat==='pipe') a=backs.sort((x,y)=>y.s.PWR-x.s.PWR)[0];
+  else if(pat==='opposite') a=others.find(q=>q.def.role==='OP')||front[1];
+  else if(pat==='xplay'){ a=front.find(q=>q!==mb)||front[0]; if(mb&&mb!==a){ mb.plan='decoy'; mb.decoyJumpAt=game.time+0.3; } }
+  else if(pat==='overload'){ a=front.sort((x,y)=>y.s.PWR-x.s.PWR)[0]; for(const q of others) if(q!==a){ q.plan='decoy'; q.decoyJumpAt=game.time+0.32; } }
+  if(!a){ T.patTempo=null; return _pst10b(p); }
+  if(Math.random()<0.3) fx.text(p.x,p.y-p.h-58,PATTERNS[pat].name+'!','#fde68a',14);
+  return a; };
+const _tempo10b=aiTempo; aiTempo=function(p,a){ const T=team(p.side); if(!isH(p)&&T.patTempo){ const t=T.patTempo; T.patTempo=null; if(t==='pipe'&&!isBack(a)) return 'high'; return t; } return _tempo10b(p,a); };
+/* defensive shading: AI back-court defenders lean toward where the opponent has been hitting */
+const _rr10=resetRally;
+resetRally=function(){ _rr10(); if(game.diff<1||game.drill) return;
+  for(const s of ['L','R']){ const T=team(s); if(!T||!T.readDepth||T.readDepth.length<2) continue; const avg=T.readDepth.reduce((a,b)=>a+b,0)/T.readDepth.length;
+    for(const p of T.players){ if(isH(p)||p===game.server) continue; const d=Math.abs(p.homeX-NET_X); if(d<300) continue; const nd=lerp(d,clamp(avg,320,600),0.25+game.diff*0.08); p.homeX=NET_X-DIRS[s]*nd; } } };
+/* ---------------- more animations ---------------- */
+Object.assign(ANIM_OPTS,{
+  serve:[['default','Default'],['sky','Sky Toss'],['spin','Spin Toss'],['stutter','Stutter Step'],['calm','One-Hand Calm']],
+  receive:[['default','Default'],['platform','Wide Platform'],['lowsquat','Low Squat'],['onearm','One-Arm Dig']],
+  block:[['default','Default'],['wide','Wide Hands'],['reach','Full Reach'],['press','Press Over']],
+  dive:[['default','Default'],['pancake','Pancake'],['superman','Superman']],
+  land:[['default','Default'],['hero','Hero Landing'],['soft','Soft Landing']]
+});
+ANIM_OPTS.celeb.push(['kneeslide','Knee Slide'],['backflip','Backflip'],['wave','Wave to Crowd'],['pointat','Point at Rival'],['headshake','Not Even Close'],['dance','Victory Dance']);
+const SKILL_POSE={
+  wallbreak:(P,k)=>{ P.arms[1]=[P.arms[0][0]-0.2,P.arms[0][1]]; P.lean+=0.2*k; },
+  feintcutter:(P,k)=>{ P.arms[0]=[2.9-k*0.4,0.9]; P.lean=-0.05; },
+  skyhammer:(P,k)=>{ P.legs=[[1.0,2.0],[0.8,1.9]]; P.arms[1]=P.arms[0].slice(); },
+  razorcut:(P,k)=>{ P.rot=-0.25*k; },
+  linedrill:(P,k)=>{ P.lean+=0.25*k; P.arms[1]=[0.3,0.4]; },
+  toolbomb:(P,k)=>{ P.arms[0]=[3.3,0.2]; },
+  pipecannon:(P,k)=>{ P.lean-=0.35*(1-k); P.legs=[[-0.3,1.8],[-0.5,1.7]]; },
+  skypipe:(P,k)=>{ P.legs=[[0.9,0.3],[-0.7,0.4]]; },
+  rainbow:(P,k)=>{ P.arms[0]=[3.4,0.1]; P.lean=-0.15; },
+  bicblitz:(P,k)=>{ P.lean+=0.2; },
+  phantompipe:(P,k)=>{ P.head=-0.4; },
+  backdrive:(P,k)=>{ P.rot=0.2*Math.sin(k*PI); },
+  setdump:(P,k)=>{ P.arms[0]=[2.6,0.2]; P.arms[1]=[0.6,0.6]; },
+  nolook:(P,k)=>{ P.head=0.6; },
+  jumpbackset:(P,k)=>{ P.lean=-0.35; P.arms=[[3.4,0.6],[3.3,0.65]]; },
+  minus:(P,k)=>{ P.lean+=0.15; P.arms[0]=[3.6-k*2.6,0.2]; P.legs=[[0.6,1.4],[0.2,1.2]]; },
+  minusset:(P,k)=>{ P.arms=[[2.6,0.6],[2.5,0.6]]; P.lean=-0.1; },
+  killblock:(P,k)=>{ P.arms=[[2.6,0.1],[2.55,0.1]]; P.lean=0.25; },
+  swingblock:(P,k)=>{ P.arms=[[2.4+k*0.7,0.1],[2.3+k*0.7,0.1]]; },
+  readshadow:(P,k)=>{ P.head=-0.2; },
+  trident:(P,k)=>{ P.arms=[[3.0,0.05],[2.9,0.05]]; }
+};
+const _pose10=poseFor;
+poseFor=function(p,t){ const P=_pose10(p,t); if(!P||!p.def) return P; const d=p.def, st=p.state;
+  if(p.skillA&&p.skillA.t<0.45&&SKILL_POSE[p.skillA.id]){ try{ SKILL_POSE[p.skillA.id](P,Math.min(1,p.skillA.t/0.3)); }catch(e){} }
+  if(p.celebT>0&&p.onGround&&st!=='dive'){ const cb=animOf(d,'celeb'), A=p.anim;
+    if(cb==='kneeslide') return {lean:-0.3,drop:24,legs:[[1.5,2.3],[0.2,2.4]],arms:[[2.8,0.3],[2.6,0.4]],rot:0,head:-0.45,mouth:1};
+    if(cb==='backflip'){ const k=(A*1.6)%1; return {lean:0,drop:-Math.sin(k*PI)*30,legs:[[1.2,2.0],[1.0,2.0]],arms:[[3,0.2],[3,0.2]],rot:k<0.8?k/0.8*PI*2:0,head:0,mouth:1}; }
+    if(cb==='wave') return {lean:0,drop:3,legs:[[0.1,0.1],[-0.05,0.1]],arms:[[3.0+Math.sin(A*10)*0.3,0.3],[0.4,0.5]],rot:0,head:-0.15,mouth:1};
+    if(cb==='pointat') return {lean:0.1,drop:4,legs:[[0.3,0.4],[-0.2,0.3]],arms:[[1.6,0.05],[0.3,0.4]],rot:0,head:-0.05,mouth:1};
+    if(cb==='headshake') return {lean:0,drop:4,legs:[[0.1,0.1],[0,0.1]],arms:[[0.4,1.9],[0.35,2.0]],rot:0,head:Math.sin(A*14)*0.3,mouth:0};
+    if(cb==='dance'){ const b=Math.sin(A*10); return {lean:b*0.15,drop:6+Math.abs(b)*6,legs:[[0.4*b+0.2,0.6],[-0.4*b,0.6]],arms:[[1.8+b*0.6,1.2],[1.8-b*0.6,1.2]],rot:0,head:b*0.15,mouth:1}; }
+  }
+  if((st==='toss'||st==='serve')){ const s=animOf(d,'serve'); if(s==='sky'&&st==='toss') P.arms[0]=[3.6,0.1]; if(s==='spin'&&st==='toss') P.rot=Math.sin((p.stateT||0)*12)*0.2; if(s==='stutter') P.drop+=Math.abs(Math.sin((p.stateT||0)*20))*4; if(s==='calm') P.arms[1]=[0.3,0.3]; }
+  if(st==='bump'){ const r=animOf(d,'receive'); if(r==='platform'){ P.legs=[[0.9,1.2],[-0.6,1.0]]; P.drop+=4; } if(r==='lowsquat'){ P.drop+=10; P.legs=[[1.0,1.9],[-0.2,1.7]]; } if(r==='onearm'){ P.arms[1]=[1.8,0.2]; P.arms[0]=[0.4,0.5]; } }
+  if(st==='block'||(!p.onGround&&p.airIntent==='block')){ const b=animOf(d,'block'); if(b==='wide') P.arms=[[2.75,0.05],[3.3,0.05]]; if(b==='reach'){ P.arms=[[3.12,0],[3.08,0]]; P.lean=-0.05; } if(b==='press'){ P.arms=[[2.75,0.15],[2.7,0.15]]; P.lean=0.18; } }
+  if(st==='dive'){ const dv=animOf(d,'dive'); if(dv==='pancake'){ P.arms=[[1.5,0],[0.6,0.3]]; } if(dv==='superman'){ P.legs=[[-0.5,0.05],[-0.6,0.05]]; P.arms=[[1.62,0],[1.55,0]]; } }
+  if(st==='land'){ const l=animOf(d,'land'); if(l==='hero'){ P.drop+=12; P.legs=[[1.4,2.4],[-0.6,0.6]]; P.arms[1]=[0.9,0.2]; P.head=-0.2; } if(l==='soft'){ P.drop=Math.max(4,P.drop-10); } }
+  return P; };
+/* ---------------- UI: skills in the studio, touch buttons, HUD chip, setter position ---------------- */
+const _edp10=edPanel;
+edPanel=function(){ _edp10(); if(edTab!=='moves') return; const d=edDef(), sk=skillsOf(d), box=document.createElement('div'); box.className='field mt-2';
+  box.innerHTML=`<label>Skills · E in a match (costs 40 gauge, 9s cooldown). The situation picks which one fires.</label><div class="grid sm:grid-cols-2 gap-2">${Object.entries(SKILL_CATS).map(([cat,lab])=>`<div class="field"><div class="text-[10px] font-black text-amber-300 tracking-widest uppercase mb-1">${lab}</div><select data-skc="${cat}">${Object.entries(SKILLS).filter(([k,v])=>v.cat===cat).map(([k,v])=>`<option value="${k}" ${sk[cat]===k?'selected':''}>${v.icon} ${v.name}${v.duo?' (duo)':''}</option>`).join('')}</select><div class="text-[11px] text-slate-300 mt-1">${SKILLS[sk[cat]].desc}</div></div>`).join('')}</div>
+   <div class="text-[11px] text-slate-400 mt-1">⚡ Minus Tempo only works when a teammate has Minus Set (and the other way round). Hayate and Kaname in Project APEX are the original duo.</div>`;
+  $('edPanel').appendChild(box);
+  box.querySelectorAll('[data-skc]').forEach(s=>s.onchange=()=>{ const cur=Object.assign({},skillsOf(edDef())); cur[s.dataset.skc]=s.value; if(edDraft){ edDraft.skills=cur; saveEdDraft(); } else styleSet('skills',cur); edPanel(); }); };
+if(typeof STYLE8_KEYS!=='undefined') STYLE8_KEYS.push('skills');
+/* touch: SKILL + SET buttons */
+(function(){ const cl=$('t9cl'); if(!cl) return; const mk=(k,ic,lab,css)=>{ const b=document.createElement('button'); b.className='b9'; b.dataset.k=k; b.style.cssText=css; b.innerHTML=`<span class="ic">${ic}</span>${lab}`; cl.appendChild(b);
+    b.addEventListener('pointerdown',e=>{ e.preventDefault(); b.classList.add('down'); press(k); if(set8('tHaptic')&&navigator.vibrate) try{ navigator.vibrate(8); }catch(_){} });
+    const up=e=>{ e.preventDefault(); b.classList.remove('down'); release(k); }; b.addEventListener('pointerup',up); b.addEventListener('pointercancel',up); };
+  mk('skill','🔷','SKILL','right:170px;bottom:150px;width:54px;height:54px'); mk('set','🤲','SET','right:236px;bottom:80px;width:52px;height:52px'); if(typeof applyT9==='function') applyT9(); })();
+(function(){ const box=$('boxL'); if(!box) return; const chip=document.createElement('div'); chip.id='skillChip'; chip.className='badge'; chip.style.cssText='display:inline-block;margin:4px 0 0 4px;pointer-events:auto;cursor:pointer;font-size:10px'; box.appendChild(chip); chip.onclick=()=>press('skill');
+  setInterval(()=>{ const h=game.human; if(!h){ chip.textContent=''; return; } const id=skillsOf(h.def)[skillCtx(h)]; const S=SKILLS[id]; chip.textContent=(h.skillArmed?'🔥 ':'🔷 ')+S.name+' · '+(h.skillCD>0?Math.ceil(h.skillCD)+'s':h.gauge>=SKILL_COST?'E':'40 gauge'); chip.style.color=h.skillArmed?'#fde047':canSkill(h)?'#a5f3fc':'#64748b'; },200); })();
+(function(){ const f=$('cmFmt'); if(!f) return; const box=document.createElement('div'); box.className='field'; box.innerHTML=`<label>Your Position</label><select id="cmPos"><option value="0">🗡️ Hitter (spiker)</option><option value="1">🎯 Setter</option><option value="2">💥 Back-row hitter</option><option value="3">🧱 Middle blocker (4v4+)</option><option value="5">🛡️ Libero (6v6)</option></select>`;
+  f.parentElement.parentElement.insertBefore(box,f.parentElement.nextSibling); $('cmPos').value=String(Save.data.hPos||0); $('cmPos').onchange=e=>{ Save.data.hPos=+e.target.value; Save.store(); }; })();
+const _bm10=beginMatch; beginMatch=function(cfg){ if(cfg.mode==='custom'&&cfg.humanIdx==null){ const i=Save.data.hPos||0; cfg.humanIdx=i; if(i===1){ const t=cfg.pL; cfg.pL=cfg.mateL; cfg.mateL=t; } if(i===2&&cfg.thirdL&&cfg.format!=='2v2'){ const t=cfg.pL; cfg.pL=cfg.thirdL; cfg.thirdL=t; } } _bm10(cfg); };
+(function(){ const help=document.querySelector('#scrHelp tbody'); if(help) help.insertAdjacentHTML('beforeend',`<tr><td class="py-1 font-black text-white">E · 🔷 SKILL</td><td>Arm your skill. Spiking from the front, attacking from the back row, setting or blocking each fire a different one.</td></tr>
+  <tr><td class="py-1 font-black text-white">R · 🤲 SET</td><td>As setter: tap as the ball arrives for a Perfect Set. In the air on the 2nd touch: jump set. Hold ↑ quick · → front · ← back · ↓ pipe to choose who you set.</td></tr>`); })();
 </script>
 
 <script>
