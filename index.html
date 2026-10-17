@@ -9534,6 +9534,133 @@ renderSettings=function(){ _rs14c(); try{ const S=$('scrSettings'); const col=S.
   box.innerHTML=`<div class="font-anime text-2xl text-white">📕 OFFICIAL RULES</div><div class="text-[11px] text-slate-400 mb-2">Turn them on or off and pick the match format in Settings.</div>${R.map(([a,b])=>`<div class="text-[12px] mb-1"><b class="text-amber-300">${a}:</b> <span class="text-slate-300">${b}</span></div>`).join('')}`;
   H.appendChild(box); })();
 </script>
+<script>
+'use strict';
+/* =========================================================================
+   v15 — net physics, outfit physics, harder serves + 10 serving skills,
+   curve spike built into the normal spike (PC + mobile)
+   ========================================================================= */
+/* ---------------- NET PHYSICS ---------------- */
+/* hard balls bury into the mesh and die; soft balls rebound; the tape behaves like a tensioned cable */
+const _bn15=ballNet;
+ballNet=function(){ const b=ball, N=NETSIM; if(!N.u) netInit(); const spdIn=Math.hypot(b.vx,b.vy), vxIn=b.vx, vyIn=b.vy, wasCord=b.netCord;
+  _bn15();
+  if(!b.live) return; const top=NET_TOP+netW(N.ci), mh=72*VS;
+  if(b.netCord&&!wasCord&&b.y>top+BALL_R&&b.y<top+mh&&spdIn>650){ // buried in the mesh: absorb, pocket, drop
+    const k=clamp((spdIn-650)/900,0,1), side=Math.sign(b.x-NET_X)||1; b.vx=side*Math.max(25,Math.abs(b.vx)*(0.55-0.35*k)); b.vy=Math.max(b.vy,60+120*k); b.spinV=(b.spinV||0)*0.3;
+    const fj=clamp((b.y-top)/mh*(N.nh-1),0,N.nh-1); netAddVel(N.ci,fj,-side*vxIn*0.22*(0.5+k)); for(let i=1;i<N.nd-1;i++) N.v[i][Math.round(fj)]+=(-side*vxIn*0.03)*(1-Math.abs(i-N.ci)/N.nd);
+    N.wv[Math.round(N.ci)]+=40+80*k; if(k>0.4){ fx.text(NET_X,b.y-40,'BURIED IN THE NET','#e2e8f0',13); try{ fx.shake(3+k*4); }catch(e){} } }
+  if(b.netCord&&!wasCord&&Math.abs(b.y-top)<BALL_R+4){ // tape: real energy loss and roll, no fixed pop
+    const sp=Math.hypot(b.vx,b.vy), e=0.42+Math.random()*0.12; if(sp>0){ b.vx*=e/0.72; b.vy*=e/0.72; }
+    const over=Math.sign(vxIn)||Math.sign(b.vx)||1; if(Math.abs(b.vx)<60) b.vx=over*rand(55,110)*(Math.random()<0.62?1:-1);
+    if(b.vy>-60) b.vy=-Math.max(90,Math.abs(vyIn)*0.3+rand(0,60)); }
+};
+/* the net sways a little in the arena air and ripples when players land or block near it */
+const _ns15=netStep;
+netStep=function(dt){ _ns15(dt); const N=NETSIM; if(!N.u) return; const w=(typeof windNow==='function'?windNow():0)*0.35, t=game.time||0;
+  for(let i=1;i<N.nd-1;i++){ const f=Math.sin(t*1.7+i*0.6)*0.6+w; for(let j=1;j<N.nh;j++) N.v[i][j]+=f*j*0.9*dt*60*0.05; }
+  for(const p of (game.players||[])){ if(!p.onGround&&p.airIntent==='block'&&Math.abs(p.x-NET_X)<36&&Math.random()<0.25){ netAddVel(N.ci*(0.6+Math.random()*0.8),1+Math.random()*3,-Math.sign(p.x-NET_X)*25); } } };
+/* nicer net: shadow on the floor, thicker top band shading, impact glints */
+const _dn15=drawNet;
+drawNet=function(c,t,front){ if(!front){ try{ c.save(); const g=c.createLinearGradient(NET_X-60,0,NET_X+60,0); g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(0.5,'rgba(0,0,0,.18)'); g.addColorStop(1,'rgba(0,0,0,0)'); c.fillStyle=g; c.beginPath(); c.ellipse(NET_X-12,FLOOR-2,90,7,0,0,7); c.fill(); c.restore(); }catch(e){} }
+  _dn15(c,t,front);
+  if(!front&&net.shake>0.15){ c.save(); c.globalCompositeOperation='lighter'; c.strokeStyle=`rgba(255,255,255,${Math.min(0.5,net.shake*0.5)})`; c.lineWidth=2; for(let i=0;i<3;i++){ const y=NET_TOP+8+i*18; c.beginPath(); c.moveTo(NET_X-14,y); c.quadraticCurveTo(NET_X+(Math.random()-0.5)*16,y+6,NET_X+14,y); c.stroke(); } c.restore(); } };
+
+/* ---------------- OUTFIT PHYSICS ---------------- */
+/* jersey hem = 4-node verlet chain; billow and shorts react to running, jumping, landing, spiking and wind */
+function stepCloth15(p,dt){ const C=p.cloth15||(p.cloth15={n:[0,0,0,0].map(()=>({x:0,y:0,px:0,py:0})),b:0,bv:0,s:[0,0],sv:[0,0],pvy:0}); dt=Math.min(dt||0.016,0.05);
+  const wind=(typeof windNow==='function'?windNow():0)*p.dir, ax=-(p.vx||0)*0.02*p.dir-wind*6, landK=(p.onGround&&C.pvy>300)?-C.pvy*0.012:0; C.pvy=p.vy||0;
+  const air=p.onGround?0:(p.vy<0?-7:5), swing=p.state==='spike'?-6:0, t=game.time||0;
+  for(let i=0;i<4;i++){ const n=C.n[i], f=(i+1)/4; const tx=clamp(ax*f+Math.sin(t*16+i+p.anim)*Math.min(1.6,Math.abs(p.vx)/300)*f+swing*f*0.5,-8,8), ty=clamp(air*f+landK*f+Math.cos(t*14+i)*0.4*f,-7,7);
+    const vx=(n.x-n.px)*0.86, vy=(n.y-n.py)*0.86; n.px=n.x; n.py=n.y; n.x+=vx+(tx-n.x)*0.18; n.y+=vy+(ty-n.y)*0.18; }
+  const tb=clamp(Math.abs(p.vx)*0.012+(p.onGround?0:Math.abs(p.vy||0)*0.006)+Math.abs(wind)*2,0,9); C.bv+=(110*(tb-C.b)-9*C.bv)*dt; C.b+=C.bv*dt;
+  for(let k=0;k<2;k++){ const tg=Math.sin(t*(12+k*3)+p.anim)*Math.min(1,Math.abs(p.vx)/350+(p.onGround?0:0.7))*3+(p.onGround?0:2.5); C.sv[k]+=(140*(tg-C.s[k])-10*C.sv[k])*dt; C.s[k]+=C.sv[k]*dt; } }
+drawCloth=function(c,p,K,hip,sh,nx,ny,s,P,TW){ if(!set8('outfit')) return; stepCloth15(p,1/60); const C=p.cloth15;
+  const L=(f,o)=>({x:lerp(hip.x,sh.x,f)+nx*o*s,y:lerp(hip.y,sh.y,f)+ny*o*s});
+  // back billow
+  const b1=L(0.92,-11*TW), b2=L(0.05,-9.5*TW), bc=L(0.5,-(11+C.b)*TW);
+  c.fillStyle=shade(K.body,-0.12); c.strokeStyle='rgba(15,23,42,.7)'; c.lineWidth=1.2; c.beginPath(); c.moveTo(b1.x,b1.y); c.quadraticCurveTo(bc.x+C.n[3].x*s*0.3,bc.y,b2.x,b2.y); c.lineTo(L(0.05,-7).x,L(0.05,-7).y); c.lineTo(L(0.92,-8).x,L(0.92,-8).y); c.closePath(); c.fill(); c.stroke();
+  // hem: chain from the front of the jersey to the back
+  const h1=L(0,10*TW), h2=L(0,-9.5*TW), pts=[]; for(let i=0;i<4;i++){ const f=i/3, base={x:lerp(h1.x,h2.x,f),y:lerp(h1.y,h2.y,f)+2*s}, n=C.n[i]; pts.push({x:base.x+n.x*s*(0.4+f*0.6),y:base.y+(3+n.y)*s*(0.5+f*0.5)}); }
+  c.fillStyle=shade(K.body,-0.06); c.beginPath(); c.moveTo(h1.x,h1.y+2*s); c.lineTo(h2.x,h2.y+2*s); for(let i=3;i>=0;i--){ const q=pts[i]; if(i===3) c.lineTo(q.x,q.y); else { const r=pts[i+1]; c.quadraticCurveTo(r.x,r.y,(r.x+q.x)/2,(r.y+q.y)/2); } } c.lineTo(pts[0].x,pts[0].y); c.closePath(); c.fill(); c.stroke();
+  c.strokeStyle=rgba(K.trim,0.9); c.lineWidth=1.4*s; c.beginPath(); pts.forEach((q,i)=>i?c.lineTo(q.x,q.y):c.moveTo(q.x,q.y)); c.stroke();
+  // fold creases when the jersey lifts
+  if(GQ>=2&&Math.abs(C.n[3].y)>2){ c.strokeStyle='rgba(15,23,42,.25)'; c.lineWidth=0.8; for(let i=0;i<2;i++){ const a=L(0.15+i*0.12,(4-i*8)*TW); c.beginPath(); c.moveTo(a.x,a.y); c.lineTo(a.x+C.n[2].x*s*0.5,a.y+4*s); c.stroke(); } }
+  // shorts: both leg openings flutter
+  const sx=hip.x+1*s, sy=hip.y+6*s; c.fillStyle=shade(K.shorts,-0.1); c.strokeStyle='rgba(15,23,42,.6)'; c.lineWidth=0.9;
+  for(let k=0;k<2;k++){ const ox=k?6*s:-10*s, fl=C.s[k]; c.beginPath(); c.moveTo(sx+ox,sy); c.lineTo(sx+ox+(k?3:-1)*s+C.n[1].x*0.3*s,sy+(3+Math.abs(fl))*s); c.lineTo(sx+ox+8*s,sy+(2+fl*0.4)*s); c.closePath(); c.fill(); c.stroke(); } };
+
+/* ---------------- HARDER SERVES ---------------- */
+aiServeAim=function(p){ const O=team(opp(p.side)), iq=p.s.IQ||5, r=Math.random();
+  if(r<0.3) return seamDepth(p);
+  if(r<0.65){ const tgt=O.players.reduce((a,b)=>b.s.REC<a.s.REC?b:a); return clamp(Math.abs(tgt.x-NET_X)+rand(-28,28),140,612); }
+  if(r<0.85) return rand(585,618)-(10-iq)*3; // deep line
+  return rand(120,170); };                    // short zone
+const _ds15=doServe;
+doServe=function(p,jumped,q){ _ds15(p,jumped,q); if(!ball.live||ball.serveDead) return; const id=ball.serveType;
+  const boost={power:1.1,topspin:1.08,laser:1.08,jumpfloat:1.06,curve:1.06,ghost:1.06,meteor:1.08,hybrid:1.04}[id]||1; if(boost>1){ ball.vx*=boost; ball.vy*=boost; }
+  if(ball.floater){ ball.wob=(ball.wob||1)*1.35; ball.dropLate=Math.max(ball.dropLate||1,1.2); }
+  serveSkill15(p,id); };
+const _dq15=digQuality; digQuality=function(p,z){ let q=_dq15(p,z); if(q>=1) return q; if(ball.kind==='SERVE'){ const sp=Math.hypot(ball.vx,ball.vy); q-=sp>1100?0.08:sp>900?0.04:0; if(ball.floater) q-=0.04; } return clamp(q,0.05,0.97); };
+
+/* ---------------- 10 SERVING SKILLS ---------------- */
+const SERVE15=[
+ {id:'thunder',name:'Thunder Jump',jp:'雷サーブ',jump:true,risk:0.09,desc:'The fastest jump serve in the game. The receiver flinches and reacts late.'},
+ {id:'knuckle',name:'Knuckle Float',jp:'ナックル',jump:false,risk:0.04,desc:'No spin at all. Shakes side to side the whole way.'},
+ {id:'dropshot',name:'Drop Shot',jp:'ドロップ',jump:true,risk:0.06,desc:'Swings for power, then dies right behind the net.'},
+ {id:'zigzag',name:'Zigzag Float',jp:'ジグザグ',jump:true,risk:0.06,desc:'A jump float that cuts left, right, left.'},
+ {id:'sidespin',name:'Side-Spin Hook',jp:'サイドスピン',jump:true,risk:0.07,desc:'Looks short, then hooks deep into the back corner.'},
+ {id:'seamseek',name:'Seam Seeker',jp:'隙間狙い',jump:true,risk:0.05,desc:'Finds the exact gap between two receivers.'},
+ {id:'acehunter',name:'Ace Hunter',jp:'エース狙い',jump:true,risk:0.07,desc:'Hunts the weakest passer on the court, right at the body.'},
+ {id:'rainbow',name:'Rainbow Lob',jp:'虹',jump:false,risk:0.03,desc:'A huge arc that drops into the deep corner.'},
+ {id:'quickserve',name:'Quick Serve',jp:'速攻サーブ',jump:false,risk:0.04,desc:'Served the instant you toss. The receivers aren\'t set yet.'},
+ {id:'eclipse',name:'Eclipse Serve',jp:'日食',jump:true,risk:0.06,cost:30,desc:'Costs 30 gauge. Fades out mid-flight and dives with topspin.'}];
+for(const s of SERVE15){ SERVES.push(s); SERVE_BY_ID[s.id]=s; }
+function serveSkill15(p,id){ const S=SERVE15.find(x=>x.id===id); if(!S) return; const O=team(opp(p.side)), sp=Math.hypot(ball.vx,ball.vy), tt=()=>tAtY(ball,FLOOR-BALL_R);
+  const miss=Math.random()<clamp(S.risk*(1.55-(p.s.SRV||5)*0.09)*(p.flowT>0?0.4:1),0,0.3);
+  const aimTo=(d,v,gm)=>aimSpike(ball,NET_X+p.dir*(miss?rand(668,700):clamp(d,90,622)),FLOOR-BALL_R,v,gm||1);
+  if(miss&&['knuckle','rainbow','quickserve'].includes(id)){ launchOver(ball,NET_X+p.dir*rand(668,700),FLOOR-BALL_R,40); fx.text(p.x+p.dir*40,p.y-p.h-90,'🏐 '+S.name.toUpperCase(),'#fde68a',16); return; }
+  switch(id){
+    case 'thunder': aimTo(aiServeAim(p),Math.max(sp,1180+p.s.SRV*45)*1.05); for(const o of O.players) o.reactLeft=(o.reactLeft||0)+0.12; ball.heavy=p.s.SRV>=8; try{ fx.shake(9); }catch(e){} break;
+    case 'knuckle': launchOver(ball,NET_X+p.dir*rand(420,600),FLOOR-BALL_R,rand(30,55)); ball.floater=true; ball.wob=2.4; ball.knuckle15=1; break;
+    case 'dropshot': aimTo(rand(90,150),Math.max(560,sp*0.6),2.2); break;
+    case 'zigzag': aimTo(aiServeAim(p),Math.max(sp,720+p.s.SRV*30)); ball.floater=true; ball.wob=1.4; ball.zig15=game.time; ball.zigA=p.dir*900; break;
+    case 'sidespin': { const X=rand(130,190), d=clamp(aiServeAim(p)-X,140,470); aimTo(d,Math.max(sp,820+p.s.SRV*45)); const t2=tt(); if(t2) ball.ax=p.dir*2*X/(t2*t2); ball.spinV=-40*p.dir; break; }
+    case 'seamseek': aimTo(seamDepth(p),Math.max(sp,900+p.s.SRV*45)); break;
+    case 'acehunter': { const tgt=O.players.reduce((a,b)=>b.s.REC<a.s.REC?b:a); aimTo(Math.abs(tgt.x-NET_X),Math.max(sp,950+p.s.SRV*45)); tgt.reactLeft=(tgt.reactLeft||0)+0.08; break; }
+    case 'rainbow': launchOver(ball,NET_X+p.dir*rand(595,620),FLOOR-BALL_R,rand(260,320)); break;
+    case 'quickserve': launchOver(ball,NET_X+p.dir*aiServeAim(p),FLOOR-BALL_R,rand(14,26)); for(const o of O.players) o.reactLeft=(o.reactLeft||0)+0.18; break;
+    case 'eclipse': aimTo(aiServeAim(p),Math.max(sp,900+p.s.SRV*45),1.6); ball.phantom=0.55; ball.trailCols=['#020617','#7c3aed','#c4b5fd','#020617']; break; }
+  fx.text(p.x+p.dir*40,p.y-p.h-90,'🏐 '+S.name.toUpperCase(),'#fde68a',16);
+  try{ game.aimLine&&(game.aimLine.x1=landX(ball)); }catch(e){} }
+/* zigzag + knuckle movement */
+const _ss15=simStep; simStep=function(){ _ss15(); const b=ball; if(!b.live) return;
+  if(b.zig15&&b.kind==='SERVE'){ const k=Math.floor((game.time-b.zig15)/0.2); if(k!==b.zigK){ b.zigK=k; b.ax=(k%2?1:-1)*Math.abs(b.zigA||800)*0.6; } }
+  if(b.knuckle15&&b.kind==='SERVE') b.ax=Math.sin(game.time*13+b.x*0.01)*520; };
+const _rt15=registerTouch; registerTouch=function(p){ _rt15(p); ball.zig15=0; ball.knuckle15=0; ball.zigK=null; };
+/* AI uses the new serving skills */
+const _aps15=aiPickServe; aiPickServe=function(p){ const S=p.s.SRV||5; if(S>=6&&Math.random()<0.38){ const pool=['thunder','knuckle','dropshot','zigzag','sidespin','seamseek','acehunter','rainbow','quickserve'].filter(id=>id!=='thunder'||S>=8); if(p.gauge>=30&&S>=8) pool.push('eclipse'); return pool[(Math.random()*pool.length)|0]; } return _aps15(p); };
+
+/* ---------------- CURVE SPIKE: built into the normal spike ---------------- */
+// PC: hold UP + LEFT/RIGHT while spiking. Mobile: push the joystick diagonally up while spiking.
+// Toward the net side = curves deep toward the line; away = curves short into the cross court.
+window.__joyUp=false;
+(function(){ const z=$('t9zone'), base=$('t9base'); if(z&&base){ z.addEventListener('pointermove',e=>{ const r=base.getBoundingClientRect(); if(!r.width) return; const cy=r.top+r.height/2, R=56*set8('tSize'); window.__joyUp=(e.clientY-cy)<-R*0.45; });
+    const off=()=>{ window.__joyUp=false; }; z.addEventListener('pointerup',off); z.addEventListener('pointercancel',off); }
+  const cb=document.querySelector('#t9 [data-k="curve"]'); if(cb) cb.style.display='none';
+  const h=$('t9hint'); if(h) h.textContent='Drag left side to move · ▼ dive · push ↗ or ↖ while you spike to CURVE it';
+  const old=$('tCurve2'); if(old) old.style.display='none'; })();
+const _hak15=humanAttackKind;
+humanAttackKind=function(p){ const k=KS(p), fwd=p.dir>0?k.right:k.left, back=p.dir>0?k.left:k.right, up=k.up||window.__joyUp;
+  if(ball.y<=NET_TOP-22&&!(p.armed&&SPECIALS[p.def.special.type].kind==='attack')&&!p.techQ&&up&&(fwd||back)){ p._curve15=fwd?1:-1; return 'CURVE'; }
+  if(k.curve){ p._curve15=fwd?1:back?-1:1; } return _hak15(p); };
+const _da15=doAttack;
+doAttack=function(p,kind){ const cv=kind==='CURVE'&&p._curve15; p._curve15=0; _da15(p,kind);
+  if(cv&&ball.live){ const X=rand(110,160), t2=tAtY(ball,FLOOR-BALL_R); if(t2){ const land=landX(ball), d=Math.abs(land-NET_X), shift=cv>0?Math.min(X,622-d):-Math.min(X,d-110); ball.ax=p.dir*2*shift/(t2*t2); ball.spinV=50*p.dir*cv; }
+    fx.text(p.x+p.dir*50,p.y-p.h-60,cv>0?'🌀 CURVE · LINE':'🌀 CURVE · CROSS','#a5f3fc',16); } };
+/* help + controls text */
+(function(){ const H=$('scrHelp'); if(H){ const d=document.createElement('div'); d.className='field mt-3 text-[12px]'; d.innerHTML='<b class="text-amber-300">Curve spike:</b> no separate button any more. On PC hold <b>UP + LEFT/RIGHT</b> as you spike. On mobile push the joystick <b>diagonally up</b> as you tap SPIKE. Toward the net side curves deep down the line, away curves short into the cross court.<br><b class="text-amber-300">Serving skills:</b> press Q before you toss to cycle through '+SERVES.length+' serves, or pick a favorite in Studio → Moves.'; H.appendChild(d); } })();
+</script>
 
 <script>
 'use strict';
