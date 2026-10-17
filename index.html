@@ -7280,7 +7280,9 @@ simStep=function(){ _ss9(); const h=game.human, mode=set8('tAssist'); if(!h||mod
  .tb9:hover{border-color:#64748b} .tb9.active{border-color:#fbbf24;box-shadow:0 0 0 2px rgba(251,191,36,.25);color:#fde68a}
  .tb9 img,.tb9 .ph{width:100%;aspect-ratio:1/1;border-radius:10px;background:radial-gradient(circle at 50% 40%,#1e293b,#020617)}
  #edTabs .tab{display:inline-flex;align-items:center;gap:5px;padding:.55rem .8rem}
- #edPrev{background:radial-gradient(circle at 50% 30%,#1e293b,#020617)}
+ #edPrev{background:radial-gradient(circle at 50% 30%,#1e293b,#020617);display:block;margin:0 auto;width:auto!important;height:min(420px,56vh)!important;aspect-ratio:340/420;max-width:100%}
+ @media (max-width:1023px){ #edPrev{height:min(380px,46vh)!important} }
+ @media (min-width:600px) and (max-width:1023px){ #scrLocker > .grid{grid-template-columns:minmax(220px,34%) 1fr!important} #edPrev{height:min(380px,62vh)!important} #scrLocker #edPanel{max-height:70vh} }
  @media (max-height:520px){ #scrMain > .text-center{display:none} .hero9{min-height:118px;padding:14px} .hero9 h3{font-size:30px} .hero9 p{font-size:11px} .hero9 .go{font-size:20px;padding:3px 12px} #nav9 .nb{padding:5px 10px;font-size:11px} #menu{padding-top:calc(52px + env(safe-area-inset-top,0px))!important} .tile9{padding:8px} .tile9 .i{width:36px;height:36px;font-size:20px} }
  `; document.head.appendChild(st); })();
 /* ---------------- top navigation + back stack ---------------- */
