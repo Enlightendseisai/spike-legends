@@ -9661,6 +9661,191 @@ doAttack=function(p,kind){ const cv=kind==='CURVE'&&p._curve15; p._curve15=0; _d
 /* help + controls text */
 (function(){ const H=$('scrHelp'); if(H){ const d=document.createElement('div'); d.className='field mt-3 text-[12px]'; d.innerHTML='<b class="text-amber-300">Curve spike:</b> no separate button any more. On PC hold <b>UP + LEFT/RIGHT</b> as you spike. On mobile push the joystick <b>diagonally up</b> as you tap SPIKE. Toward the net side curves deep down the line, away curves short into the cross court.<br><b class="text-amber-300">Serving skills:</b> press Q before you toss to cycle through '+SERVES.length+' serves, or pick a favorite in Studio → Moves.'; H.appendChild(d); } })();
 </script>
+<script>
+'use strict';
+/* =========================================================================
+   v16 — player kits: special move VARIANTS (spike / serve / set / block),
+   basic serves + techs for everyone, special ones locked to the kit,
+   all-rounders · DASH + BOOM JUMP · turn around when moving away from the net
+   ========================================================================= */
+
+/* ---------------- KITS ---------------- */
+const BASIC_SV=['underhand','float','slice','jumpfloat','power'];
+const BASIC_T=['kill','deep','sharp','seam','hands','tip','behind','roll','offspeed','linedrive','rebound','pokeshot','overpass','freeball','pipe','shoot',
+ 'synchro','timediff','decoykill','xplay','tandem','tripleswing','stack','fakepipe','switchhit','slicetip','linepush','overtip','freetip','netkill','pipecross'];
+const ROLE_T={MB:['aquick','slide','backquick','ultraquick','gapquick','dquick','slidecross','pumpquick','doubleslide','bic'],OP:['bic','slidecross'],
+ S:['jumpdump','setterfeint','cushion','setterhammer','backdump','offhanddump'],WS:[],L:[]};
+const EL_SV={blaze:['topspin','thunder'],frost:['knuckle','laser'],gale:['zigzag','curve'],tide:['sidespin','rainbow'],terra:['thunder','dropshot'],
+ thunder:['laser','quickserve'],sakura:['curve','rainbow'],shadow:['ghost','hybrid'],radiant:['sky','seamseek'],void:['eclipse','ghost'],star:['meteor','acehunter']};
+const TYPE_SV={leap:['quickserve','thunder'],cannon:['topspin','thunder'],drop:['dropshot','topspin'],cut:['sidespin','curve'],dump:['dropshot','hybrid'],
+ tempo:['quickserve','laser'],wipe:['seamseek','curve'],wall:['knuckle','sky'],guardian:['rainbow','knuckle'],split:['ghost','zigzag'],spiral:['sidespin','curve'],
+ quake:['topspin','thunder'],phantom:['ghost','eclipse'],zero:['laser','seamseek']};
+const FORM_T={cannon:['hammer','cannonline','flathammer','floorburner','bodyshot'],edge:['jumpcross','shortcross','antennashot','heelshot','blindside'],
+ flash:['elbowsnap','riser','delaytip','tooltip','bloop'],fall:['topdrop','dipper','backspin','knuckledrop','floatroll'],spiral:['spincurve','outcurve','snakeline','drift','cornerroll'],
+ mirage:['blindside','jumpcross','tooltip','netcrawler','snakeline'],quake:['hammer','flathammer','floorburner','bodyshot','wipe'],
+ phantom:['knuckle','dipper','netcrawler','delaytip','drift'],zero:['riser','elbowsnap','cannonline','backspin','wipe']};
+const TYPE_FORM={leap:'flash',cannon:'cannon',drop:'fall',cut:'edge',dump:'flash',tempo:'flash',wipe:'quake',split:'mirage',spiral:'spiral',quake:'quake',phantom:'phantom',zero:'zero'};
+const PAS_SV={'Big Serve':['topspin'],'Ice Serve':['knuckle'],'Floater':['zigzag']};
+const PAS_T={'Tool Master':['wipe','tooltip'],'Lefty':['outcurve'],'Dump Master':['backdump','offhanddump']};
+const ALLROUND_IDS=new Set(['zx_yora','zx_kayo']);
+const VAR16={spike:['💥','SPIKE'],serve:['🏐','SERVE'],set:['🎯','SET'],block:['🧱','BLOCK']};
+function sigKind16(d){ const s=d&&d.special&&d.special.sig; if(!s) return null; try{ if(String(s).startsWith('v2:')&&typeof CAST13!=='undefined'){ const C=CAST13[s.slice(3)]; return C?C.kind:null; } if(typeof SIG!=='undefined'&&SIG[s]) return SIG[s].kind||'attack'; }catch(e){} return null; }
+function moveInfo16(d){ const sp=(d&&d.special)||{}, m=sp.move&&MOVE_BY_ID[sp.move]; return m?{el:m.el,form:m.form,type:m.type}:{el:null,form:TYPE_FORM[sp.type]||null,type:sp.type}; }
+const _kitCache=new Map();
+function kitOf(d){
+  if(!d) return null;
+  let tier=0; try{ const E=evoOf(d.id); tier=E&&E.tier||0; }catch(e){}
+  const stamp=(d.kitV||[]).join(',')+'|'+tier+'|'+(d.special&&(d.special.move||d.special.type))+'|'+d.role+'|'+STAT_KEYS.map(k=>(d.stats||{})[k]).join('')+'|'+(d.passives||[]).join(',');
+  const C=_kitCache.get(d); if(C&&C.stamp===stamp) return C;
+  const st=d.stats||{}, vals=STAT_KEYS.map(k=>st[k]||5), mn=Math.min(...vals), avg=vals.reduce((a,b)=>a+b,0)/vals.length;
+  const ps=d.passives||[], sk=sigKind16(d), mi=moveInfo16(d), kind=(SPECIALS[d.special&&d.special.type]||{}).kind||'attack', h=hash14(d.id||d.name||'x');
+  const allround=ALLROUND_IDS.has(d.id)||tier>=3||(mn>=7&&avg>=8);
+  let V;
+  if(allround) V={spike:true,serve:true,set:true,block:true};
+  else if(d.custom&&Array.isArray(d.kitV)){ V={spike:false,serve:false,set:false,block:false}; for(const k of d.kitV.slice(0,2)) if(k in V) V[k]=true; if(d.role!=='L'&&kind==='attack'&&!d.kitV.length) V.spike=true; }
+  else V={
+    spike:d.role!=='L'&&kind==='attack'&&!['wall','guardian','redirect','support'].includes(sk),
+    serve:(st.SRV||5)>=8||ps.some(p=>PAS_SV[p])||((st.SRV||5)>=6&&h%3===0),
+    set:d.role==='S'||(st.SET||5)>=8||sk==='set',
+    block:d.role==='MB'||(st.BLK||5)>=8||d.special&&d.special.type==='wall'||sk==='wall'};
+  const serves=new Set(BASIC_SV), techs=new Set([...BASIC_T,...(ROLE_T[d.role]||[])]);
+  for(const p of ps){ (PAS_SV[p]||[]).forEach(x=>serves.add(x)); (PAS_T[p]||[]).forEach(x=>techs.add(x)); }
+  if(V.serve) (EL_SV[mi.el]||TYPE_SV[mi.type]||TYPE_SV.cannon).forEach(x=>serves.add(x));
+  if(V.spike) (FORM_T[mi.form]||FORM_T.cannon).forEach(x=>techs.add(x));
+  if(allround){ SERVES.forEach(s=>serves.add(s.id)); TECHS.forEach(t=>techs.add(t.id)); }
+  const K={stamp,allround,v:V,serves,techs}; _kitCache.set(d,K); return K; }
+function kitP(p){ return p&&p.def?kitOf(p.def):null; }
+function svOK(d,id){ const K=kitOf(d); return !K||K.serves.has(id); }
+function techOK(d,id){ const K=kitOf(d); return !K||K.techs.has(id); }
+function basicServe16(d){ const S=(d.stats&&d.stats.SRV)||5; return S>=8?'power':S>=6?'jumpfloat':S>=4?'float':'underhand'; }
+
+/* serves: basics for everyone, the rest only through the kit */
+const _dsv16=defaultServe; defaultServe=function(d){ const s=_dsv16(d); return svOK(d,s)?s:basicServe16(d); };
+const _ssv16=startServe; startServe=function(p){ const s=_ssv16(p); return svOK(p.def,s)?s:defaultServe(p.def); };
+const _aps16=aiPickServe; aiPickServe=function(p){ let s=_aps16(p); const K=kitP(p);
+  if(K&&!K.serves.has(s)){ const adv=[...K.serves].filter(x=>!BASIC_SV.includes(x)&&SERVE_BY_ID[x]&&!(SERVE_BY_ID[x].cost>p.gauge)); s=adv.length&&Math.random()<0.45?adv[(Math.random()*adv.length)|0]:basicServe16(p.def); }
+  if(K&&K.v.serve&&p.gauge>=100&&p.specialCD<=0&&!p.armed&&Math.random()<0.55){ p.armed=true; p._armServe=true; }
+  return s; };
+function fixServeSel16(h){ if(!h||game.state!=='SERVE'||game.server!==h||h.tossed) return; let i=SERVES.findIndex(s=>s.id===h.serveSel); if(i<0) i=0;
+  for(let n=0;n<SERVES.length&&!svOK(h.def,SERVES[i].id);n++) i=(i+1)%SERVES.length;
+  h.serveSel=SERVES[i].id; h.serveKind=SERVE_BY_ID[h.serveSel].jump?'jump':'float'; try{ updChip(); }catch(e){} }
+
+/* techs: basic + role for everyone, special spikes through the kit */
+const _tav16=techAvail; techAvail=function(t,c){ if(t&&c&&c._p&&c._p.def&&!techOK(c._p.def,t.id)) return false; return _tav16(t,c); };
+const _lo16=loadoutOf; loadoutOf=function(d){ const L=_lo16(d).filter(id=>techOK(d,id)); if(L.length<4){ for(const id of [...defaultLoadout(d),...(ROLE_T[d.role]||[]),'seam','hands','tip','linedrive','sharp','roll']) if(L.length<4&&!L.includes(id)&&TECH_BY_ID[id]&&techOK(d,id)) L.push(id); } return L.slice(0,4); };
+
+/* ---------------- SPECIAL MOVE VARIANTS ---------------- */
+function variantFx16(p,what,col){ const nm=(p.def.special&&p.def.special.name)||'SPECIAL', V=VAR16[what];
+  fx.text(p.x,p.y-p.h-90,V[0]+' '+nm+' · '+V[1],col||'#fde047',22); fx.ring(p.x,p.y-60,col||'#fde047',150); try{ cutIn(p); }catch(e){} try{ sfx.block(); }catch(e){} }
+function spend16(p,cd){ p.armed=false; p.gauge=0; p.specialCD=cd||16; p._armServe=false; }
+/* SERVE variant */
+const _ds16=doServe;
+doServe=function(p,jumped,q){ _ds16(p,jumped,q); try{ const K=kitP(p); if(!K||!K.v.serve||!p.armed||!p._armServe||!ball.live||ball.serveDead) return;
+  spend16(p,16); const mi=moveInfo16(p.def), sp=Math.hypot(ball.vx,ball.vy), d=p.ctrl==='ai'?aiServeAim(p):(p.serveAim??480);
+  const floaty=['frost','gale','sakura','tide'].includes(mi.el);
+  aimSpike(ball,NET_X+p.dir*clamp(d,130,612),FLOOR-BALL_R,Math.max(sp*1.12,1120+(p.s.SRV||5)*42),floaty?0.9:1.4);
+  if(floaty){ ball.floater=true; ball.wob=Math.max(2.2,(ball.wob||1)*1.6); ball.dropLate=1.35; } else ball.heavy=true;
+  for(const o of team(opp(p.side)).players) o.reactLeft=(o.reactLeft||0)+0.1;
+  ball.moveServe16=p.def.special.move||p.def.special.type; variantFx16(p,'serve','#7dd3fc'); try{ fx.shake(8); }catch(e){} }catch(e){ console.error(e); } };
+/* SET variant: a perfect set that powers up the next attack */
+const _set16=doSet;
+doSet=function(p,z){ const r=_set16(p,z); try{ const K=kitP(p); if(!K||!K.v.set||!ball.live||ball.sigSet13||sigKind16(p.def)==='set') return r;
+  const go=p.ctrl==='ai'?(p.gauge>=100&&p.specialCD<=0&&Math.random()<0.45):p.armed;
+  if(go&&ball.lastPlayer===p){ spend16(p,14); ball.moveSet16={side:p.side,by:p}; ball.perfectSet=true; variantFx16(p,'set','#86efac'); } }catch(e){ console.error(e); } return r; };
+const _da16=doAttack;
+doAttack=function(p,kind){ const M=ball.moveSet16; ball.moveSet16=null; _da16(p,kind);
+  try{ if(M&&M.side===p.side&&M.by!==p&&ball.live&&ball.lastPlayer===p){ ball.vx*=1.12; ball.vy*=1.12; ball.blockMod=(ball.blockMod||0)-0.25; fx.text(p.x,p.y-p.h-70,'⚡ POWERED BY '+M.by.name.split(' ')[0].toUpperCase()+'\'S SET','#86efac',15); } }catch(e){} };
+/* SPIKE variant: only players with a spike variant can fire the special as a spike */
+const _hak16=humanAttackKind; humanAttackKind=function(p){ const K=kitP(p); if(K&&!K.v.spike&&p.armed){ p.armed=false; const k=_hak16(p); p.armed=true; return k==='SPECIAL'?'POWER':k; } return _hak16(p); };
+const _ca16=chooseAttack; chooseAttack=function(p){ const K=kitP(p); if(K&&!K.v.spike) p.planSpecial=false; const k=_ca16(p); return (K&&!K.v.spike&&k==='SPECIAL')?'POWER':k; };
+/* BLOCK variant: an armed block is a guaranteed stuff block */
+const _bc16=blockCheck;
+blockCheck=function(){ let swapped=null;
+  try{ if(!ball.blockChecked&&ball.lastSide&&game.players){ const P=game.players.find(p=>p.armed&&!p.onGround&&p.airIntent==='block'&&p.side!==ball.lastSide&&p.def.special&&p.def.special.type!=='wall'&&sigKind16(p.def)!=='wall'&&(kitP(p)||{v:{}}).v.block&&inBlockWindow(p));
+    if(P){ swapped={p:P,sp:P.def.special}; P.def.special=Object.assign({},P.def.special,{type:'wall'}); } } }catch(e){}
+  try{ _bc16(); } finally{ if(swapped){ swapped.p.def.special=swapped.sp; if(!swapped.p.armed){ variantFx16(swapped.p,'block','#fca5a5'); swapped.p._armServe=false; } } } };
+/* human: arming during your serve = serve variant */
+const _pr16=press;
+let lastDir16={k:null,t:0};
+press=function(k){ const h=game.human, was=h&&h.armed; _pr16(k);
+  try{ if(!h) return;
+    if(k==='special'&&h.armed&&!was&&game.state==='SERVE'&&game.server===h&&!h.tossed){ const K=kitP(h); if(K&&K.v.serve){ h._armServe=true; fx.text(h.x,h.y-h.h-76,'🏐 SERVE VARIANT READY','#7dd3fc',15); } else fx.text(h.x,h.y-h.h-76,'No serve variant: saved for later','#94a3b8',13); }
+    if(k==='tech') fixServeSel16(h);
+    if(k==='dash') dash16(h,((keys.right?1:0)-(keys.left?1:0))||Math.sign(h.faceS||h.dir)||h.dir);
+    if((k==='left'||k==='right')&&game.state==='RALLY'){ const t=performance.now(); if(lastDir16.k===k&&t-lastDir16.t<260) dash16(h,k==='right'?1:-1); lastDir16={k,t}; }
+  }catch(e){ console.error(e); } };
+/* AI arms a block variant in the air sometimes */
+function aiVariantArm16(p){ if(p.ctrl!=='ai'||p.armed||p.gauge<100||p.specialCD>0) return; const K=kitP(p); if(!K) return;
+  if(K.v.block&&!p.onGround&&p.airIntent==='block'&&p._bkTry!==p.jumpX){ p._bkTry=p.jumpX; if(Math.random()<0.5) p.armed=true; } }
+
+/* ---------------- DASH + BOOM JUMP ---------------- */
+function dash16(p,dir){ if(!p||!p.onGround||p.recoverT>0||p.state==='dive'||(p.dashCD||0)>0) return false;
+  if(game.state==='SERVE'&&game.server===p&&!p.tossed) return false; if(p.state==='toss') return false;
+  p.dashT=0.2; p.dashCD=0.6; p.dashDir=dir||p.dir; p.lastDash=game.time; p.vx=p.dashDir*p.maxSpeed*2.3;
+  fx.dust(p.x-p.dashDir*14,FLOOR,8); try{ sfx.squeak(); }catch(e){} p.dashTrail=[]; return true; }
+const _sp16=stepPlayer;
+stepPlayer=function(p){
+  if((p.dashT||0)>0&&p.onGround&&p.state!=='dive') p.wantVx=p.dashDir*p.maxSpeed*2.3;
+  if(p.ctrl==='ai'&&p.onGround&&game.state==='RALLY'&&(p.dashCD||0)<=0&&p.recoverT<=0&&Math.abs(p.wantVx)>=p.maxSpeed*0.95&&Math.random()<0.012) dash16(p,Math.sign(p.wantVx));
+  _sp16(p);
+  p.dashT=Math.max(0,(p.dashT||0)-DT); p.dashCD=Math.max(0,(p.dashCD||0)-DT); p.boomT=Math.max(0,(p.boomT||0)-DT);
+  if(p.dashT>0||p.boomT>0){ p.dashTrail=p.dashTrail||[]; p.dashTrail.push({x:p.x,y:p.y,a:1}); if(p.dashTrail.length>7) p.dashTrail.shift(); }
+  else if(p.dashTrail&&p.dashTrail.length) p.dashTrail.shift();
+  aiVariantArm16(p);
+  /* facing: turn around when running away from the net */
+  let tgt=p.dir;
+  if(p.onGround&&p.state!=='dive'&&p.state!=='toss'&&!(game.state==='SERVE'&&game.server===p)&&Math.abs(p.vx)>80&&Math.sign(p.vx)!==Math.sign(p.dir)){
+    const near=ball.live&&sideOf(ball.x)===p.side&&Math.abs(ball.x-p.x)<230&&ball.vy>0&&ball.y>FLOOR-430;
+    if(!near) tgt=-p.dir; }
+  if(p.faceS==null) p.faceS=p.dir; const r=(p.onGround?11:16)*DT; p.faceS+=clamp(tgt-p.faceS,-r,r);
+};
+const _jp16=jump;
+jump=function(p,intent,leap){ const was=p.onGround; _jp16(p,intent,leap);
+  try{ if(!was||p.onGround) return; const dashed=(p.dashT||0)>0||(p.lastDash!=null&&game.time-p.lastDash<0.32);
+    const boom=p.ctrl==='ai'?(intent==='block'&&dashed):dashed;
+    if(boom){ p.vy*=1.12; p.vx=(p.dashDir||p.dir)*Math.min(p.maxSpeed,Math.abs(p.vx)+120); p.boomT=0.5; p.dashT=0; p.lastDash=null;
+      fx.ring(p.x,FLOOR,'#fde68a',130); fx.dust(p.x,FLOOR,16); fx.text(p.x,p.y-p.h-40,'💥 BOOM JUMP','#fde68a',18); try{ fx.shake(5); }catch(e){} try{ sfx.land(); }catch(e){} } }catch(e){} };
+
+/* draw: afterimages + turn-around flip */
+const _dpl16=drawPlayer;
+drawPlayer=function(c,p,o){
+  if(p&&p.dashTrail&&p.dashTrail.length>1&&!(o&&(o.ghost||o.preview))){ const L=p.dashTrail.length; for(let i=L%2;i<L-1;i+=2){ const T=p.dashTrail[i]; c.save(); c.globalAlpha=0.08+0.16*i/L; c.translate(T.x-p.x,T.y-p.y); try{ _dpl16(c,p,Object.assign({},o||{},{ghost:true,noShadow:true,dt:0})); }catch(e){} c.restore(); } }
+  const d=p&&p.dir, f=p&&p.faceS;
+  if(p&&f!=null&&isFinite(f)&&Math.abs(f-d)>0.02&&!(o&&o.preview)){ p.dir=(f<0?-1:1)*Math.max(0.16,Math.abs(f)); try{ return _dpl16(c,p,o); } finally{ p.dir=d; } }
+  return _dpl16(c,p,o); };
+
+/* ---------------- controls ---------------- */
+for(const M of [KEYMAP,typeof KEYMAP_DEFAULT!=='undefined'?KEYMAP_DEFAULT:{}]) Object.assign(M,{ShiftLeft:'dash',ShiftRight:'dash'});
+try{ CTRL_ACTIONS.push(['dash','Dash (or double-tap left/right) · jump right after a dash = BOOM JUMP']); applyKeys(); }catch(e){}
+(function(){ const cl=$('t9cl'); if(!cl) return; const b=document.createElement('button'); b.className='b9'; b.dataset.k='dash'; b.id='t9dash';
+  b.style.cssText='right:100px;bottom:96px;width:58px;height:58px'; b.innerHTML='<span class="ic">💨</span>DASH'; cl.appendChild(b);
+  b.addEventListener('pointerdown',e=>{ e.preventDefault(); b.classList.add('down'); try{ if(set8('tHaptic')&&navigator.vibrate) navigator.vibrate(8); }catch(_){} press('dash'); });
+  const up=e=>{ e.preventDefault(); b.classList.remove('down'); release('dash'); }; b.addEventListener('pointerup',up); b.addEventListener('pointercancel',up); b.addEventListener('contextmenu',e=>e.preventDefault());
+  try{ applyT9(); }catch(e){}
+  const h=$('t9hint'); if(h) h.textContent='Drag to move · 💨 dash, then JUMP = BOOM JUMP · push ↗/↖ while you spike to CURVE'; })();
+
+/* ---------------- UI: cards + studio ---------------- */
+function kitLine16(d){ const K=kitOf(d); if(!K) return ''; if(K.allround) return '🌟 ALL-ROUNDER · every variant, every serve and technique';
+  const on=Object.keys(VAR16).filter(k=>K.v[k]); return '🧬 Special variants: '+(on.length?on.map(k=>VAR16[k][0]+' '+VAR16[k][1]).join(' · '):'none'); }
+if(typeof cardHTML==='function'){ const _ch16=cardHTML; cardHTML=function(d,...a){ let h=_ch16(d,...a); try{ if(d&&typeof h==='string'){ const K=kitOf(d), adv=[...K.serves].filter(x=>!BASIC_SV.includes(x)&&SERVE_BY_ID[x]).map(x=>SERVE_BY_ID[x].name);
+  h+=`<div class="text-[10px] font-black mt-1" style="color:${K.allround?'#fde047':'#a5f3fc'}">${kitLine16(d)}</div>`+(adv.length&&!K.allround?`<div class="text-[10px] text-slate-400">🏐 Special serves: ${adv.join(', ')}</div>`:''); } }catch(e){} return h; }; }
+const _edp16=edPanel;
+edPanel=function(){ _edp16(); try{ if(edTab!=='moves') return; const panel=$('edPanel'), d=edDef(); if(!panel||!d) return; const K=kitOf(d);
+  panel.querySelectorAll('[data-tech]').forEach(b=>{ if(!K.techs.has(b.dataset.tech)){ b.disabled=true; b.style.opacity='.35'; b.textContent='🔒 '+b.textContent; b.title='Locked: '+(d.role==='L'?'liberos':'this player')+' needs a SPIKE variant that includes it'; } });
+  panel.querySelectorAll('[data-fserve]').forEach(b=>{ if(!K.serves.has(b.dataset.fserve)){ b.disabled=true; b.style.opacity='.35'; b.textContent='🔒 '+b.textContent.replace(/^[🏐🤚]\s*/u,''); b.title='Locked: needs a SERVE variant that includes it'; } });
+  const box=document.createElement('div'); box.className='field mt-2';
+  let html=`<label>Special Move Variants</label><div class="text-[12px] font-black" style="color:${K.allround?'#fde047':'#a5f3fc'}">${kitLine16(d)}</div>
+   <div class="text-[11px] text-slate-400 mt-1">Basic serves and techniques work for everyone. Special serves, spikes, sets and blocks only work if this player's special move has that variant. Arm the special (K / ⚡), then serve, set, block or spike to fire that variant.</div>`;
+  if(d.custom&&!K.allround){ const cur=d.kitV||Object.keys(VAR16).filter(k=>K.v[k]).slice(0,2);
+    html+=`<div class="text-[11px] text-amber-300 font-black mt-2">Pick 2 variants for your player:</div><div class="flex flex-wrap gap-1 mt-1">`+Object.keys(VAR16).map(k=>`<button class="tab ${cur.includes(k)?'active':''}" data-kv="${k}">${VAR16[k][0]} ${VAR16[k][1]}</button>`).join('')+'</div><div class="text-[10px] text-slate-400 mt-1">Reach MYTHIC evolution to become an all-rounder.</div>'; }
+  box.innerHTML=html; panel.appendChild(box);
+  box.querySelectorAll('[data-kv]').forEach(b=>b.onclick=()=>{ let cur=(d.kitV||Object.keys(VAR16).filter(k=>K.v[k]).slice(0,2)).slice(); const k=b.dataset.kv;
+    if(cur.includes(k)) cur=cur.filter(x=>x!==k); else { cur.push(k); if(cur.length>2) cur.shift(); } d.kitV=cur; try{ saveEdDraft(); }catch(e){} edPanel(); });
+}catch(e){ console.error(e); } };
+
+/* help */
+(function(){ const H=$('scrHelp'); if(H){ const d=document.createElement('div'); d.className='field mt-3 text-[12px]'; d.innerHTML='<b class="text-amber-300">Player kits:</b> everyone can use the basic serves (Underhand, Float, Short Slice, Jump Float, Power Jump) and the basic techniques. Special serves, spikes, sets and blocks only unlock if the player\'s special move has that <b>variant</b>. The card shows each player\'s variants. <b>All-rounders</b> have everything. Arm your special during your serve for the serve variant, before you set for the set variant, or in a block jump for the block variant.<br><b class="text-amber-300">Dash:</b> Shift, double-tap left/right, or 💨 on mobile. <b>Jump right after a dash for a BOOM JUMP</b> (higher and farther).<br><b class="text-amber-300">Facing:</b> players turn around when they run away from the net and turn back to face the ball.'; H.appendChild(d); } })();
+</script>
 
 <script>
 'use strict';
