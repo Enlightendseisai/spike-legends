@@ -26,7 +26,7 @@ html,body{-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;ove
 html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:'Nunito','Hiragino Sans','Noto Sans JP','Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif;user-select:none;-webkit-user-select:none;touch-action:manipulation}
 .font-anime{font-family:'Bangers','Hiragino Sans','Noto Sans JP','Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif;letter-spacing:1.5px}
 .font-score{font-family:'Teko',sans-serif;line-height:.85}
-#game{position:fixed;inset:0;width:100vw;height:100vh;display:block;touch-action:none}
+#game{position:fixed;left:0;top:0;width:100vw;height:100vh;height:100dvh;display:block;touch-action:none}
 #speedlines{position:fixed;inset:0;pointer-events:none;z-index:5;opacity:0;transition:opacity .06s;background:radial-gradient(circle,transparent 30%,rgba(255,255,255,.2) 80%),repeating-conic-gradient(from 0deg,rgba(255,255,255,.33) 0deg 1.4deg,transparent 1.4deg 9deg)}
 #speedlines.on{opacity:1;animation:sp .09s infinite linear}
 @keyframes sp{50%{transform:scale(1.04)}}
@@ -7072,8 +7072,8 @@ const _edp8=edPanel; edPanel=function(){ if(edTab==='style'){ renderStyleTab(); 
 GQ=2; SIDE_EVERY=3;
 const Q_NAMES=['Low','Medium','High','Ultra'];
 const Q_CFG=[
-  {dprCap:1,   scale:0.6, crowdEvery:8, sideEvery:8, parts:140, shadow:false},
-  {dprCap:1.25,scale:0.85,crowdEvery:4, sideEvery:4, parts:280, shadow:false},
+  {dprCap:1,   scale:0.75, crowdEvery:8, sideEvery:8, parts:140, shadow:false},
+  {dprCap:1.5, scale:0.9,crowdEvery:4, sideEvery:4, parts:280, shadow:false},
   {dprCap:1.5, scale:1,   crowdEvery:2, sideEvery:3, parts:450, shadow:true},
   {dprCap:2,   scale:1,   crowdEvery:1, sideEvery:2, parts:650, shadow:true}
 ];
@@ -7223,13 +7223,13 @@ Object.assign(SET8_DEFAULT,{tSize:1,tAlpha:0.85,tLeft:false,tAssist:'jump',tHapt
   zone.addEventListener('pointermove',move);
   const end=e=>{ if(e.pointerId!==jid) return; jid=null; base.style.display=set8('tFixed')?'block':'none'; knob.style.transform=''; for(const k in held) setK(k,false); };
   zone.addEventListener('pointerup',end); zone.addEventListener('pointercancel',end);
-  window.applyT9=function(){ const s=set8('tSize'), a=set8('tAlpha'), lh=set8('tLeft'); const cl=$('t9cl');
+  window.applyT9=function(){ const vh=(window.visualViewport?visualViewport.height:innerHeight), s=set8('tSize')*Math.min(1,Math.max(0.55,(vh-150)/330)), a=set8('tAlpha'), lh=set8('tLeft'); const cl=$('t9cl');
     cl.style.transform=`scale(${s})`; cl.style.transformOrigin=lh?'bottom left':'bottom right'; cl.style.opacity=a; base.style.opacity=a;
     cl.style.left=lh?'8px':''; cl.style.right=lh?'':'8px'; zone.style.left=lh?'':'0'; zone.style.right=lh?'0':'';
     cl.querySelectorAll('.b9').forEach(b=>{ const r=b.dataset.r??b.style.right; b.dataset.r=r; if(lh){ b.style.left=r; b.style.right=''; } else { b.style.right=r; b.style.left=''; } });
     base.style.width=base.style.height=(140*s)+'px'; base.style.margin=`${-70*s}px 0 0 ${-70*s}px`;
     if(set8('tFixed')){ const r=zone.getBoundingClientRect(); base.style.left=(r.width*0.32)+'px'; base.style.top=(r.height-110*s)+'px'; base.style.display='block'; } };
-  applyT9();
+  applyT9(); window.addEventListener('resize',()=>applyT9()); if(window.visualViewport) visualViewport.addEventListener('resize',()=>applyT9());
   // special gauge ring + hint fade
   let hintT=0;
   setInterval(()=>{ const h=game.human, b=$('t9sp'); if(!h||!b) return; const g=Math.min(100,h.gauge||0), ready=g>=100&&!h.armed&&h.specialCD<=0;
@@ -7243,6 +7243,18 @@ simStep=function(){ _ss9(); const h=game.human, mode=set8('tAssist'); if(!h||mod
   const sc=game.setCue; if(sc&&sc.on&&team('L').next===h&&h.onGround&&h.recoverT<=0&&game.time>=sc.tJump-0.02&&game.time<sc.tHit&&!h._asJ){ h._asJ=true; h.x+=clamp(sc.x-h.dir*14-h.x,-40,40); press('up'); setTimeout(()=>release('up'),60); }
   if(h.onGround) h._asJ=false;
   if(mode==='full'&&!h.onGround&&h.airIntent==='attack'&&!(h.spikeBuf>0)&&ball.live&&!ball.held&&inZone(h.spikeZone())) h.spikeBuf=0.12; };
+</script>
+<script>
+'use strict';
+/* iOS Safari: size the game to the part of the screen you can actually see */
+(function(){ const fit=()=>{ const vv=window.visualViewport, w=Math.round(vv?vv.width:innerWidth), h=Math.round(vv?vv.height:innerHeight);
+    cv.style.width=w+'px'; cv.style.height=h+'px'; if(view.cw!==w||view.ch!==h){ view.cw=w; view.ch=h; view.scale=Math.min(w/W,h/H); view.ox=(w-W*view.scale)/2; view.oy=(h-H*view.scale)/2;
+      view.x0=-view.ox/view.scale; view.x1=(w-view.ox)/view.scale; view.y0=-view.oy/view.scale; view.y1=(h-view.oy)/view.scale; if(typeof resize9==='function') resize9(); else { cv.width=Math.round(w*view.dpr); cv.height=Math.round(h*view.dpr); } bgDirty=true; if(typeof buildCrowd==='function') buildCrowd(); } };
+  const _rz=resize; resize=function(){ _rz(); fit(); }; window.addEventListener('resize',()=>setTimeout(fit,50)); window.addEventListener('orientationchange',()=>setTimeout(fit,300)); if(window.visualViewport) visualViewport.addEventListener('resize',fit); fit(); setTimeout(fit,500);
+  const st=document.createElement('style'); st.textContent=`
+   #cutCv{height:100dvh!important}
+   @media (max-height:520px){ #hud{zoom:.72} #tPause{top:auto!important;bottom:calc(6px + env(safe-area-inset-bottom,0px))!important;padding:6px 14px!important;font-size:12px!important} #t9 .hint{display:none} }
+   @media (max-height:400px){ #hud{zoom:.6} }`; document.head.appendChild(st); })();
 </script>
 <script>
 'use strict';
@@ -7700,6 +7712,6 @@ const _bm10=beginMatch; beginMatch=function(cfg){ if(cfg.mode==='custom'&&cfg.hu
   const _tt=toast; toast=function(m){ _tt(T(m)); };
 })();
 </script>
-<script>if('serviceWorker' in navigator&&location.protocol==='https:'){ window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{}); let rl=false; navigator.serviceWorker.addEventListener('controllerchange',()=>{ if(rl) return; rl=true; if(document.getElementById('menu')&&!document.getElementById('menu').classList.contains('hidden')) location.reload(); })); }</script>
+<script>if('serviceWorker' in navigator&&location.protocol==='https:'){ window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{}); let rl=false; navigator.serviceWorker.addEventListener('controllerchange',()=>{ if(rl) return; rl=true; if(document.getElementById('menu')&&!document.getElementById('menu').classList.contains('hidden')) location.reload(); }); }); }</script>
 </body>
 </html>
