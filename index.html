@@ -13966,6 +13966,83 @@ const BOND_CALLS27=['Special bond!','What a combo!','They\'re perfectly in sync!
 /* blocking was too rare (about 6% of points): front-row blockers get a small boost */
 { const _bm=beginMatch; beginMatch=function(cfg){ const r=_bm(cfg); try{ for(const p of game.players||[]) p.M.blk=(p.M.blk||0)+0.06; }catch(e){} return r; }; }
 </script>
+<script>
+'use strict';
+/* =========================================================================
+   v28 — ABILITY DECK: every ability a player has is usable in a match.
+   Special (K) · situational Skill · each evolved trait becomes an AWAKENING
+   you can trigger · evolved Flow can be entered on demand.
+   F / Tab (or the 🔄 button) picks which one fires on E. A clear bar shows
+   every ability, what's selected, and whether it's ready.
+   ========================================================================= */
+const AWK_COST27=50, AWK_CD27=18, AWK_T27=6;
+function awkKind27(name){ const n=String(name||'').toLowerCase(); if(/block|wall|reach|tower|read/.test(n)) return 'block'; if(/serve|float|ace/.test(n)) return 'serve'; if(/dig|guard|libero|floor|diving|safe|cover|glue|receive/.test(n)) return 'dig'; if(/quick|speed|rocket|feet|spark|feather|sky|spring|jump/.test(n)) return 'speed'; return 'attack'; }
+const AWK_MODS27={attack:{pw:0.18,pen:0.1},block:{blk:0.25},dig:{pass:0.2,dig:0.15},speed:{spd:0.15,jmp:0.12},serve:{pw:0.1}};
+const AWK_TXT27={attack:'+18% spike power, harder to dig',block:'+25% block',dig:'+20% passing & digs',speed:'+15% speed, +12% jump',serve:'+10% power, serves sharper'};
+function deckOf27(p){ if(!p||!p.def) return []; const d=p.def, e=(typeof evoOf25==='function')?evoOf25(d.id):{}, sp=d.special||{}, P=d.passives||[], out=[];
+  out.push({id:'special',icon:sp.emoji||'⚡',name:sp.name||'Special',key:'K',sub:'Special move · full gauge',ready:p.gauge>=100&&!(p.specialCD>0),armed:!!p.armed,status:p.armed?'ARMED':p.specialCD>0?Math.ceil(p.specialCD)+'s':p.gauge>=100?'READY':Math.floor(p.gauge)+'%',evo:!!e.sp});
+  let sk=null; try{ const c=skillCtx(p), id=skillsOf(d)[c]; sk=SKILLS[id]; out.push({id:'skill',icon:sk.icon||'🔷',name:sk.name,sub:'Skill · '+(SKILL_CATS[c]||c)+' (changes with the situation)',ready:canSkill(p),armed:!!p.skillArmed,status:p.skillArmed?'ARMED':p.skillCD>0?Math.ceil(p.skillCD)+'s':p.gauge>=SKILL_COST?'READY':'40 gauge'}); }catch(err){}
+  ['t1','t2'].forEach((k,i)=>{ if(!e[k]||!P[i]) return; const kind=awkKind27(P[i]), cd=(p.awkCD27&&p.awkCD27[k])||0, on=p.awkOn27&&p.awkOn27[k]>0;
+    out.push({id:'awk:'+k,icon:'✦',name:'覚醒 '+P[i],sub:'Awakening · '+AWK_TXT27[kind]+' for '+AWK_T27+'s · '+AWK_COST27+' gauge',ready:p.gauge>=AWK_COST27&&cd<=0&&!on,armed:on,status:on?'ACTIVE':cd>0?Math.ceil(cd)+'s':p.gauge>=AWK_COST27?'READY':AWK_COST27+' gauge',kind}); });
+  if(e.flow) out.push({id:'awk:flow',icon:'👁️',name:'覚醒 FLOW',sub:'Enter your awakened Flow now · full gauge · once per set',ready:p.gauge>=100&&!(p.flowT>0)&&!p.flowUsed27,armed:p.flowT>0,status:p.flowT>0?'IN FLOW':p.flowUsed27?'USED':p.gauge>=100?'READY':'100 gauge'});
+  return out; }
+function selOf27(p){ const D=deckOf27(p); if(!D.length) return null; p.abSel27=(p.abSel27||0)%D.length; return D[p.abSel27]; }
+function useAbility27(p,ab,quiet){ if(!ab) return false;
+  if(ab.id==='special'){ press('special'); return true; }
+  if(ab.id==='skill'){ return false; }  // the classic skill path handles it
+  if(ab.id==='awk:flow'){ if(!ab.ready){ if(!quiet) fx.text(p.x,p.y-p.h-50,ab.status,'#94a3b8',16); return true; } p.gauge-=100; p.flowUsed27=true; try{ enterFlow(p); }catch(err){ p.flowT=6; } fx.text(p.x,p.y-p.h-80,'👁️ 覚醒 FLOW','#fde047',24); try{ FX25.burst(elemOf25(p.def),p.x,p.y-p.h*0.5,2); }catch(err){} return true; }
+  if(ab.id.startsWith('awk:')){ const k=ab.id.slice(4); if(!ab.ready){ if(!quiet) fx.text(p.x,p.y-p.h-50,ab.status,'#94a3b8',16); return true; }
+    p.gauge-=AWK_COST27; p.awkCD27=p.awkCD27||{}; p.awkOn27=p.awkOn27||{}; p.awkMods27=p.awkMods27||{}; const M=AWK_MODS27[ab.kind]; p.awkMods27[k]=M; for(const m in M) p.M[m]=(p.M[m]||0)+M[m]; p.awkOn27[k]=AWK_T27; p.awkCD27[k]=AWK_CD27;
+    fx.text(p.x,p.y-p.h-84,'✦ '+ab.name,'#fde047',22); fx.ring(p.x,p.y-p.h*0.6,'#fde047',120); try{ FX25.burst(elemOf25(p.def),p.x,p.y-p.h*0.6,1.4); sfx.block(); }catch(err){}
+    if(p.side==='L'){ try{ const c=$('cutin'); $('cutEmoji').textContent='✦'; $('cutTitle').textContent=ab.name; $('cutJp').textContent=p.name.toUpperCase()+' · AWAKENING'; c.classList.add('on'); clearTimeout(useAbility27.t); useAbility27.t=setTimeout(()=>c.classList.remove('on'),650); }catch(err){} } return true; }
+  return false; }
+/* timers: awakenings run out, cooldowns tick; AI uses its awakenings too */
+{ const _sp=stepPlayer; stepPlayer=function(p){ _sp(p); try{ if(p.awkOn27) for(const k in p.awkOn27){ if(p.awkOn27[k]>0){ p.awkOn27[k]-=DT; if(p.awkOn27[k]<=0){ const M=p.awkMods27[k]; for(const m in M) p.M[m]-=M[m]; p.awkMods27[k]=null; } } }
+    if(p.awkCD27) for(const k in p.awkCD27) p.awkCD27[k]=Math.max(0,p.awkCD27[k]-DT);
+    if(p.ctrl==='ai'&&game.state==='RALLY'&&game.mode!=='demo'&&Math.random()<0.004){ const D=deckOf27(p).filter(a=>a.id.startsWith('awk:t')&&a.ready); if(D.length) useAbility27(p,D[0],true); } }catch(err){} }; }
+{ const _rr=resetRally; resetRally=function(){ const r=_rr.apply(this,arguments); try{ if(game.teams&&game.teams.L){ const sc=team('L').score+team('R').score; if(sc===0) for(const p of game.players) p.flowUsed27=false; } }catch(err){} return r; }; }
+/* input: F / Tab cycles, E fires the selected ability */
+Object.assign(KEYMAP,{KeyF:'cycle',Tab:'cycle'}); if(typeof KEYMAP_DEFAULT!=='undefined') Object.assign(KEYMAP_DEFAULT,{KeyF:'cycle',Tab:'cycle'});
+try{ if(typeof CTRL_ACTIONS!=='undefined') CTRL_ACTIONS.splice(7,0,['cycle','Choose which ability fires on E (special, skill, awakenings, Flow)']); applyKeys&&applyKeys(); }catch(e){}
+window.addEventListener('keydown',e=>{ if(e.code==='Tab'&&game.human&&$('menu').classList.contains('hidden')) e.preventDefault(); },true);
+{ const _pr=press; press=function(k){ const h=game.human, inM=h&&$('menu').classList.contains('hidden')&&!game.paused;
+  if(k==='cycle'){ if(inM){ const D=deckOf27(h); if(D.length){ h.abSel27=((h.abSel27||0)+1)%D.length; const a=D[h.abSel27]; fx.text(h.x,h.y-h.h-56,'▶ '+a.name,'#a5f3fc',16); try{ sfx.ui(); }catch(e){} deckDraw27(true); } } return; }
+  if(k==='skill'&&inM){ const a=selOf27(h); if(a&&a.id!=='skill'){ useAbility27(h,a); deckDraw27(true); return; } }
+  return _pr(k); }; }
+/* touch: a NEXT button beside SKILL */
+(function(){ const cl=$('t9cl'); if(!cl) return; const b=document.createElement('button'); b.className='b9'; b.dataset.k='cycle'; b.style.cssText='right:228px;bottom:150px;width:50px;height:50px'; b.innerHTML='<span class="ic">🔄</span>NEXT'; cl.appendChild(b);
+  b.addEventListener('pointerdown',e=>{ e.preventDefault(); b.classList.add('down'); press('cycle'); }); const up=e=>{ e.preventDefault(); b.classList.remove('down'); }; b.addEventListener('pointerup',up); b.addEventListener('pointercancel',up); if(typeof applyT9==='function') applyT9(); })();
+
+/* ---------------- the ability bar ---------------- */
+(function(){ const st=document.createElement('style'); st.textContent=`
+#deck27{position:fixed;left:64px;top:112px;z-index:9;display:none;flex-direction:column;align-items:flex-start;gap:4px;pointer-events:none;font-family:Nunito,sans-serif}
+#deck27 .row{display:flex;gap:6px;pointer-events:auto}
+#deck27 .ab{position:relative;width:46px;height:46px;border-radius:12px;background:rgba(2,6,23,.78);border:2px solid #334155;display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;transition:transform .12s}
+#deck27 .ab.sel{border-color:#fde047;transform:scale(1.08);box-shadow:0 0 14px rgba(253,224,71,.45)}
+#deck27 .ab.ready::after{content:'';position:absolute;inset:-2px;border-radius:12px;box-shadow:0 0 0 2px rgba(74,222,128,.75) inset}
+#deck27 .ab.dim{opacity:.45}
+#deck27 .ab .k{position:absolute;top:-7px;right:-6px;font:900 9px Nunito;background:#0f172a;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:0 4px}
+#deck27 .ab .evo{position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);font:900 8px Nunito;color:#fde047;text-shadow:0 0 4px #000}
+#deck27 .ab .bar{position:absolute;left:4px;right:4px;bottom:3px;height:3px;border-radius:2px;background:#1e293b;overflow:hidden}
+#deck27 .ab .bar i{display:block;height:3px;background:#38bdf8}
+#deck27 .cap{background:rgba(2,6,23,.85);border:1px solid #334155;border-radius:10px;padding:3px 10px;font-size:11px;line-height:1.35;color:#e2e8f0;max-width:300px}
+#deck27 .cap b{color:#fde047}
+@media (pointer:coarse){ #deck27 .ab{width:36px;height:36px;font-size:17px} #deck27 .cap{font-size:10px} }`; document.head.appendChild(st);
+  const el=document.createElement('div'); el.id='deck27'; el.innerHTML='<div class="row" id="deck27r"></div><div class="cap" id="deck27c"></div>'; document.body.appendChild(el);
+  const old=$('skillChip'); if(old) old.style.display='none'; })();
+let deckSig27='';
+function deckDraw27(force){ const el=$('deck27'); if(!el) return; const h=game.human, on=h&&game.teams&&game.teams.L&&game.mode!=='demo'&&!$('hud').classList.contains('hidden')&&!(typeof CS!=='undefined'&&CS.active);
+  el.style.display=on?'flex':'none'; if(!on) return; try{ const R=$('boxL').getBoundingClientRect(); if(R.width){ el.style.left=Math.round(R.left)+'px'; el.style.top=Math.round(R.bottom+8)+'px'; $('deck27c').style.maxWidth=Math.max(220,Math.round(R.width))+'px'; } }catch(e){} const D=deckOf27(h); if(!D.length) return; const si=(h.abSel27||0)%D.length, s=D[si];
+  const sig=D.map(a=>a.id+a.status+a.ready+a.armed).join('|')+si+Math.floor(h.gauge/5); if(!force&&sig===deckSig27) return; deckSig27=sig;
+  $('deck27r').innerHTML=D.map((a,i)=>{ const pct=a.id==='special'||a.id==='awk:flow'?Math.min(100,h.gauge):a.id==='skill'?Math.min(100,h.gauge/SKILL_COST*100):Math.min(100,h.gauge/AWK_COST27*100);
+    return `<div class="ab ${i===si?'sel':''} ${a.ready||a.armed?'ready':''} ${!a.ready&&!a.armed&&i!==si?'dim':''}" data-ab="${i}" title="${esc(a.name)}">${a.icon}<span class="k">${a.id==='special'?'K':i===si?'E':''}</span>${a.evo||a.id.startsWith('awk:')?'<span class="evo">真</span>':''}<span class="bar"><i style="width:${pct}%;background:${a.armed?'#fde047':a.ready?'#4ade80':'#38bdf8'}"></i></span></div>`; }).join('');
+  $('deck27c').innerHTML=`<b>${s.id==='special'?'K':'E'} ▶ ${esc(s.name)}</b> · <span style="color:${s.armed?'#fde047':s.ready?'#4ade80':'#94a3b8'}">${esc(s.status)}</span> · <span style="color:#94a3b8">${esc(s.sub)}</span> · <span style="color:#64748b">F/Tab: next</span>`;
+  $('deck27r').querySelectorAll('[data-ab]').forEach(b=>b.onpointerdown=e=>{ e.preventDefault(); const i=+b.dataset.ab; if(h.abSel27===i){ press('skill'); } else { h.abSel27=i; deckDraw27(true); } }); }
+setInterval(()=>{ try{ deckDraw27(false); }catch(e){} },150);
+/* the help screen learns the new keys */
+(function(){ const help=document.querySelector('#scrHelp tbody'); if(help) help.insertAdjacentHTML('beforeend',`<tr><td class="py-1 font-black text-white">F / Tab · 🔄 NEXT</td><td>Choose which ability fires on E: your skill, an evolved trait's ✦ Awakening, or Awakened Flow. The bar at the bottom shows every ability, which one is selected, and if it's ready. K is always your special.</td></tr>`); })();
+try{ GUIDE27.splice(2,0,['🎛️','Your abilities','The bar at the bottom of a match shows <b>every ability your player has</b>: ⚡ special (K), 🔷 skill, and — once evolved — each trait\'s ✦ <b>Awakening</b> (a 6-second power boost) and 👁️ <b>Awakened Flow</b>. Press <b>F</b> / <b>Tab</b> (or 🔄 on a phone) to choose, then <b>E</b> to use it. Green = ready, gold = active.']); }catch(e){}
+</script>
 
 <script>
 'use strict';
