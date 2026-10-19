@@ -15444,6 +15444,50 @@ function c33ahaServe(c,t,dt,S){ const v=vp23(); grad31(c,v,'#451a03','#b45309');
 { const _ss=simStep; simStep=function(){ if(game.netGuest&&typeof NET!=='undefined'&&NET.inMatch){ try{ guestStep(); }catch(e){ console.error(e); } return; } return _ss(); }; }
 { const _em=endMatch; endMatch=function(){ if(game.mode==='online'&&typeof NET!=='undefined'&&NET.inMatch&&!NET.storyCoop){ try{ if(NET.role==='host') send({t:'end',w:game.matchWinner,sc:[team('L').score,team('R').score],st:game.players.map(p=>p.st)}); }catch(e){} netEnd(); setTimeout(()=>{ try{ giveReward33(); }catch(e){} },50); return; } return _em.apply(this,arguments); }; }
 </script>
+<script>
+'use strict';
+/* =========================================================================
+   v34 — ANDROID / TOUCH FIXES
+   1. Ghost taps: a finger that opens a menu (pause, the end of a match, a pop-up)
+      also "clicked" whatever appeared under it a moment later — e.g. tapping
+      PAUSE pressed a button in the pause menu by itself. A click now only counts
+      if it lands on the same thing the finger went down on.
+   2. The guide no longer pops open by itself on first launch (it felt like the
+      app was clicking around on its own); a small hint points to it instead.
+   ========================================================================= */
+(function(){ let pd=null;
+  document.addEventListener('pointerdown',e=>{ pd={t:performance.now(),el:e.target,type:e.pointerType}; },true);
+  document.addEventListener('click',e=>{ try{ if(!e.isTrusted||!pd) return; const dt=performance.now()-pd.t; if(dt>800) return; const a=pd.el, b=e.target;
+      if(!a||!b||a===b||(a.contains&&a.contains(b))||(b.contains&&b.contains(a))) return;
+      if(b.tagName==='INPUT'||b.tagName==='SELECT'||b.tagName==='LABEL'||b.tagName==='TEXTAREA') return;
+      e.preventDefault(); e.stopImmediatePropagation(); }catch(err){} },true);
+  // touch-buttons that act on pointerdown should never produce a click afterwards at all
+  document.addEventListener('pointerup',e=>{ try{ const t=e.target; if(t&&t.closest&&t.closest('.touch-btn,#tPause,.b13,.b9,.zone,[data-ab]')) pd={t:performance.now(),el:t,type:e.pointerType}; }catch(err){} },true);
+})();
+try{ if(!Save.data.guide27){ Save.data.guide27=true; Save.data.guideHint34=true; Save.store(); setTimeout(()=>{ try{ toast('📖 New here? Tap “Guide” on the home screen any time.'); }catch(e){} },2500); } }catch(e){}
+</script>
+<script>
+'use strict';
+/* Ultra on every device: "Auto" now starts at Ultra (phones used to start at Low) and only steps
+   down if the frame rate really can't keep up; the level it settles on is remembered. */
+guessQuality=function(){ const s=Save.data.autoQ34; return s!=null?s:3; };
+{ const _aq=applyQuality; applyQuality=function(){ const r=_aq.apply(this,arguments); try{ if(qSetting()==='auto'&&window.__autoQ!=null&&window.__autoQ!==Save.data.autoQ34){ Save.data.autoQ34=window.__autoQ; Save.store(); } }catch(e){} return r; }; }
+try{ if(qSetting()==='auto'){ window.__autoQ=null; applyQuality(); } }catch(e){}
+</script>
+<script>
+'use strict';
+/* phone HUD clean-up */
+(function(){ const st=document.createElement('style'); st.textContent=`
+ @media (max-height:520px){
+  #syn23{top:auto!important;bottom:52px!important;transform:translateX(-50%) scale(.78)!important;transform-origin:50% 100%}
+  #deck27c{display:none!important}
+  #rp29b{top:auto!important;bottom:52px!important;right:auto!important;left:12px!important;font-size:11px!important;padding:4px 10px!important}
+  #callMenu{max-width:70vw!important;margin:auto!important}
+ }`; document.head.appendChild(st); })();
+/* the call menu closes on its own after 3 s, or when you tap anywhere else */
+{ const _t=toggleCallMenu; toggleCallMenu=function(force){ _t(force); try{ const m=$('callMenu'); clearTimeout(window.__cm34); if(m&&m.style.display!=='none') window.__cm34=setTimeout(()=>{ try{ _t(false); }catch(e){} },3000); }catch(e){} }; }
+document.addEventListener('pointerdown',e=>{ try{ const m=$('callMenu'); if(m&&m.style.display!=='none'&&!m.contains(e.target)&&!(e.target.closest&&e.target.closest('[data-k="call"]'))) m.style.display='none'; }catch(err){} },true);
+</script>
 
 <script>
 'use strict';

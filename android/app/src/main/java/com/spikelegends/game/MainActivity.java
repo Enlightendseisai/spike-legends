@@ -27,6 +27,12 @@ public class MainActivity extends Activity {
     web = new WebView(this);
     web.setBackgroundColor(0xFF000000);
     web.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+    web.setOverScrollMode(View.OVER_SCROLL_NEVER);
+    web.setLongClickable(false);
+    web.setOnLongClickListener(v -> true);
+    web.setHapticFeedbackEnabled(false);
+    web.setVerticalScrollBarEnabled(false);
+    web.setHorizontalScrollBarEnabled(false);
     WebSettings s = web.getSettings();
     s.setJavaScriptEnabled(true);
     s.setDomStorageEnabled(true);
@@ -60,8 +66,14 @@ public class MainActivity extends Activity {
   @Override protected void onPause() { super.onPause(); web.onPause(); web.evaluateJavascript("try{Save.store()}catch(e){}", null); }
   @Override protected void onResume() { super.onResume(); web.onResume(); immersive(); }
   @Override public void onBackPressed() {
-    web.evaluateJavascript("(function(){try{var m=document.getElementById('menu');return (window.game&&game.teams&&game.teams.L&&m&&m.classList.contains('hidden'))?'match':'menu'}catch(e){return 'menu'}})()", v -> {
-      new AlertDialog.Builder(this).setTitle("Spike Legends").setMessage("Quit the game?")
-        .setPositiveButton("Quit", (d, w) -> finish()).setNegativeButton("Keep playing", null).show(); });
+    // Back: in a match -> pause/resume; on any other screen -> home; on the home screen -> ask to quit
+    web.evaluateJavascript("(function(){try{var m=document.getElementById('menu');"
+      + "if(typeof game!=='undefined'&&game.teams&&game.teams.L&&m&&m.classList.contains('hidden')&&game.mode!=='demo'){ if(typeof NET!=='undefined'&&NET.inMatch) return 'online'; togglePause(); return 'paused'; }"
+      + "var ov=[].slice.call(document.querySelectorAll('body > div[id]')).filter(function(d){return d.style&&d.style.position==='fixed'&&d.style.zIndex>=50&&d.offsetParent!==null;}); if(ov.length){ ov[ov.length-1].remove(); return 'closed'; }"
+      + "var home=document.getElementById('scrMain'); if(home&&home.classList.contains('hidden')){ show('scrMain'); return 'home'; } return 'quit'; }catch(e){ return 'quit'; }})()", v -> {
+      if (v != null && v.contains("quit")) {
+        new AlertDialog.Builder(this).setTitle("Spike Legends").setMessage("Quit the game?")
+          .setPositiveButton("Quit", (d, w) -> finish()).setNegativeButton("Keep playing", null).show();
+      } });
   }
 }
