@@ -1,4 +1,6 @@
 plugins { id 'com.android.application' }
+def vCode = Integer.parseInt(System.getenv('VERSION_CODE') ?: '33')
+def vName = System.getenv('VERSION_NAME') ?: '1.33'
 android {
   namespace 'com.spikelegends.game'
   compileSdk 34
@@ -6,8 +8,8 @@ android {
     applicationId 'com.spikelegends.game'
     minSdk 24
     targetSdk 34
-    versionCode (System.getenv('VERSION_CODE') ?: '33') as int
-    versionName (System.getenv('VERSION_NAME') ?: '33')
+    versionCode vCode
+    versionName vName
   }
   signingConfigs {
     release {
