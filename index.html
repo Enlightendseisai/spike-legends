@@ -15488,6 +15488,307 @@ try{ if(qSetting()==='auto'){ window.__autoQ=null; applyQuality(); } }catch(e){}
 { const _t=toggleCallMenu; toggleCallMenu=function(force){ _t(force); try{ const m=$('callMenu'); clearTimeout(window.__cm34); if(m&&m.style.display!=='none') window.__cm34=setTimeout(()=>{ try{ _t(false); }catch(e){} },3000); }catch(e){} }; }
 document.addEventListener('pointerdown',e=>{ try{ const m=$('callMenu'); if(m&&m.style.display!=='none'&&!m.contains(e.target)&&!(e.target.closest&&e.target.closest('[data-k="call"]'))) m.style.display='none'; }catch(err){} },true);
 </script>
+<script>
+'use strict';
+/* =========================================================================
+   v35 — MULTIPLAYER FIXES
+   1. "The ball gets big online": on the guest's screen the serve toss left a
+      trail, so the served ball dragged a huge white smear behind it (and any
+      snapshot correction did the same). The trail is now cleared during the toss
+      and whenever the ball jumps.
+   2. Dashes (and skills, set calls, ability cycling, tech) now work for the guest.
+   ========================================================================= */
+{ const _db=drawBall; drawBall=function(c){ try{ const b=ball, tr=b.trail; if(b.serveToss||b.held) tr.length=0; else if(tr.length){ const q=tr[tr.length-1]; if(Math.hypot(q.x-b.x,q.y-b.y)>160) tr.length=0; } }catch(e){} return _db(c); }; }
+const NETKEYS35=['dash','skill','set','cycle','tech','feint','curve'];
+{ const _p=press; press=function(k){ if(game.netGuest&&typeof NET!=='undefined'&&NET.inMatch&&NETKEYS35.includes(k)&&$('menu').classList.contains('hidden')){ NET.pendingEv=(NET.pendingEv||[]).concat(k); try{ sendInput(true); }catch(e){} if(k==='set'||k==='feint'||k==='curve') keys[k]=true; return; } return _p.apply(this,arguments); }; }
+{ const _r=release; release=function(k){ if(game.netGuest&&typeof NET!=='undefined'&&NET.inMatch&&NETKEYS35.includes(k)){ if(k in keys) keys[k]=false; try{ sendInput(true); }catch(e){} return; } return _r.apply(this,arguments); }; }
+{ const _ap=applyPress; applyPress=function(p,k){ if(!NETKEYS35.includes(k)) return _ap(p,k); const H=game.human, saved=Object.assign({},keys);
+    try{ Object.assign(keys,NET.rkeys||{}); game.human=p; press(k); if(k==='set'){ p.setBuf=0.3; } }catch(e){ console.error(e); } finally{ for(const q in keys) keys[q]=saved[q]; game.human=H; } }; }
+</script>
+<script>
+'use strict';
+/* =========================================================================
+   v35 — SYNERGY / BOND CUTSCENES SHOW WHAT ACTUALLY HAPPENED
+   Before, every synergy played its own fixed animation (often a jump spike),
+   so a dig or a standing serve could turn into a jumping cutscene. Now the
+   game records the real action (attack / dig / serve / block, in the air or
+   on the ground, jump serve or not) and the cutscene style and final pose
+   follow it.
+   ========================================================================= */
+let REAL35=null;
+const realWrap35=(name,kind)=>{ const f=window[name]; if(typeof f!=='function') return; window[name]=function(p){ const prev=REAL35; REAL35={kind,p,air:!!(p&&!p.onGround),jump:kind==='serve'?!!arguments[1]:!!(p&&!p.onGround),dive:!!(p&&p.state==='dive')}; try{ return f.apply(this,arguments); }finally{ REAL35=prev; } }; };
+realWrap35('doAttack','attack'); realWrap35('doDig','dig'); realWrap35('doServe','serve');
+{ const _bc=blockCheck; blockCheck=function(){ const prev=REAL35; REAL35={kind:'block',air:true,jump:true}; try{ return _bc.apply(this,arguments); }finally{ REAL35=prev; } }; }
+const STYLE_OK35={attack:['fpHit','freak','twin','switch','decoy'],dig:['dig'],serve:['serve'],block:['block']};
+{ const _sf=synFire23; synFire23=function(syn,A,B,after){ let s=syn; try{ const R=REAL35&&Object.assign({},REAL35,{air:A&&!A.onGround,dive:A&&A.state==='dive'}); if(R){ const ok=STYLE_OK35[R.kind]||[]; let st=syn.style; if(!ok.includes(st)) st=R.kind==='attack'?(R.air?'fpHit':'fpSet'):ok[0]||st;
+      s=Object.assign(Object.create(Object.getPrototypeOf(syn)),syn,{style:st,kind:R.kind==='attack'&&!R.air?'set':R.kind,real35:R}); if(syn.long29&&R.kind!=='attack'){ s.long29=false; } } }catch(e){ console.error(e); } return _sf(s,A,B,after); }; }
+/* the finish frame uses the real pose */
+{ const _fin=synFinish23; synFinish23=function(c,t,dt,S,ctx){ const R=ctx.s&&ctx.s.real35; if(!R) return _fin(c,t,dt,S,ctx);
+    const s=ctx.s, A=ctx.A.def, v=vp23(); W22.up=1; W22.flash=1; const air=R.air&&(R.kind==='attack'||R.kind==='block'||R.jump), V=view22(0.6,0.55,1.4,[0.0,air?2.2:1.2,-1.2],{zoom:1.1+t*0.08,maxPitch:0.85});
+    const pose=R.kind==='block'?'block':R.kind==='dig'?(R.dive?'dive':'pass'):R.kind==='serve'?(R.jump?'spike':'set'):air?'spike':'set';
+    stage22(c,V,t,[P22(A,ctx.kit,0,-1.2,{y:air?0.75:0,pose,mood:'yell',ph:1}),P22(ctx.B.def,ctx.kit,-1.6,-2.4,{pose:'cheer',mood:'grin',ph:2})]); W22.flash=0;
+    bigText22(c,s.name.toUpperCase(),v.cx,v.y0+v.H*0.85,v.H*0.075,'#ffffff',{glow:s.col}); }; }
+/* standing serve: the camera stays on the ground */
+{ const _sv=SYN_STYLE23.serve; SYN_STYLE23.serve=function(c,t,dt,S,ctx){ const R=ctx.s&&ctx.s.real35; if(!R||R.jump) return _sv(c,t,dt,S,ctx);
+    const s=ctx.s, v=s.v||{}, A=ctx.A.def, B=ctx.B.def, SC=[0.4,2.3,-9.2], END=[0.1,1.0,6.5];
+    const b=t<0.75?[0.4,1.3+Math.sin(clamp(t/0.75,0,1)*PI)*0.9,-9.5]:l3(SC,END,clamp((t-0.75)/0.9,0,1)); if(v.float) b[0]+=Math.sin(t*22)*0.25*clamp(t-0.75,0,1);
+    const V=view22(0.4,1.6,-10.6,l3(b,[0,1.2,6],0.5),{zoom:1.0,maxPitch:0.5});
+    stage22(c,V,t,[...synCast23(ctx,{o3:{x:-0.9,z:6.4,pose:t>1.3?'dive':'pass',mood:t>1.3?'shock':'focus'},o4:{x:1.0,z:6.3,pose:t>1.3?'dive':'pass',mood:t>1.3?'shock':'focus'}}),P22(B,ctx.kit,0.3,-0.6,{pose:'ready',mood:'grit',ph:1}),ballItem23(b,{spin:v.float?0:t*14,trail:t>0.75?trail23(q=>b,t,1):null,aura:t>0.75?'gold':null})]);
+    if(t<0.8) arms23(c,V,A,ctx.kit,[V.cx-V.W*0.05,V.y1-V.H*0.2],[lerp(V.x1-V.W*0.15,V.cx,clamp((t-0.6)/0.15,0,1)),lerp(V.y1,V.cy,clamp((t-0.6)/0.15,0,1))],'open','open',s.col);
+    if(t>1.3) bigText22(c,v.float?'IT MOVED!':'ACE?!',V.cx,V.y0+V.H*0.25,V.H*0.09,'#fca5a5'); if(t>0.75&&t<1.3) bigText22(c,s.sfx||'',V.x0+V.W*0.25,V.y0+V.H*0.3,V.H*0.1,'#fff',{glow:s.col});
+    once20(S,'sv_t',()=>CSFX.whoosh()); if(t>0.75) once20(S,'sv_hit',()=>{ CSFX.hit(); }); }; }
+</script>
+<script>
+'use strict';
+/* =========================================================================
+   v35 — CROSS-COURT SPIKES · 700 ROTATIONS · NEW BALL + NET SOUNDS
+   ========================================================================= */
+
+/* ---------------- 1. the ball has depth: cross-court vs line ----------------
+   The court is drawn in perspective, but the ball always flew down the middle,
+   so a cross-court spike looked exactly like a line shot. The ball now has a
+   depth (far side ↔ near side): line shots stay in the hitter's lane, cross-
+   court shots cut diagonally across the court (you can see it travel toward or
+   away from the camera, with its shadow), and passes/sets drift toward the
+   player they're going to. Hold BACK (away from the net) while spiking to hit
+   cross-court; hold FORWARD for the line. */
+const BZ35={z:0,z0:0,z1:0,x0:0,x1:0};
+function laneZ35(p){ try{ const L=laneOf(p); if(L) return L; }catch(e){} return 0; }
+function setBZ35(z1,dist){ BZ35.z0=BZ35.z; BZ35.z1=clamp(z1,-1,1); BZ35.x0=ball.x; BZ35.x1=ball.x+(dist||300)*Math.sign(ball.vx||1); }
+{ const _rt=registerTouch; registerTouch=function(p){ _rt(p); try{ BZ35.z=BZ35.z*0.4+laneZ35(p)*0.6; setBZ35(BZ35.z*0.5,300); }catch(e){} }; }
+{ const _da=doAttack; doAttack=function(p,kind){ _da(p,kind); try{ if(ball.lastPlayer!==p||!ball.live) return; const z=laneZ35(p)||(Math.random()<0.5?-0.55:0.55); BZ35.z=z; const land=Math.abs((typeof landX==='function'?landX(ball):ball.x+ball.vx*0.5)-ball.x)||300;
+    if(kind==='CROSS'){ setBZ35(-Math.sign(z)*rand(0.75,1),land); fx.text(ball.x,ball.y-60,'CROSS!','#a5f3fc',16); }
+    else if(kind==='LINE'){ setBZ35(z*1.05,land); fx.text(ball.x,ball.y-60,'LINE!','#fde68a',16); }
+    else if(kind==='TIP'||kind==='FEINT') setBZ35(z*0.4,land);
+    else setBZ35(rand(-0.7,0.7),land); }catch(e){} }; }
+{ const _ds=doSet; doSet=function(p){ const r=_ds.apply(this,arguments); try{ const T=team(p.side), h=T&&T.next; setBZ35(h?laneZ35(h):0,Math.abs((h?h.x:NET_X)-p.x)||200); }catch(e){} return r; }; }
+{ const _sv=doServe; doServe=function(p){ _sv.apply(this,arguments); try{ BZ35.z=0; setBZ35(rand(-0.8,0.8),500); }catch(e){} }; }
+{ const _sb=stepBall; stepBall=function(){ _sb(); try{ if(!ball.live||ball.held){ BZ35.z*=0.9; return; } const span=BZ35.x1-BZ35.x0; const k=span?clamp((ball.x-BZ35.x0)/span,0,1):1; BZ35.z=lerp(BZ35.z0,BZ35.z1,k); }catch(e){} }; }
+SET8_DEFAULT.bdepth35=true;
+{ const _db=drawBall; drawBall=function(c){ const z=set8('bdepth35')!==false&&game.mode!=='demo'?BZ35.z:0; if(Math.abs(z)<0.01) return _db(c); const k=1+(z<0?0.12:0.11)*z, dy=z*(z<0?44:42)*1.0, b=ball;
+    c.save(); c.translate(b.x,FLOOR); c.scale(k,k); c.translate(-b.x,-FLOOR+dy/k); try{ _db(c); }finally{ c.restore(); } }; }
+{ const _bm=beginMatch; beginMatch=function(){ BZ35.z=BZ35.z0=BZ35.z1=0; return _bm.apply(this,arguments); }; }
+/* AI uses the angle more */
+{ const _ca=chooseAttack; chooseAttack=function(p){ const k=_ca(p); try{ if(k==='POWER'&&Math.random()<0.28) return 'CROSS'; }catch(e){} return k; }; }
+
+/* ---------------- 2. 700 rotations ----------------
+   7 systems × 5 serve-receive patterns × 4 depth styles × 5 back-row shapes = 700.
+   Your team's rotation is chosen in Settings (or Auto); AI teams pick their own. */
+const ROT_SYS35=[['5-1',[0,0,0,0,0,0]],['6-2',[10,-8,0,0,-6,4]],['4-2',[-6,10,6,0,0,-4]],['6-0',[0,0,12,0,0,0]],['5-1 Swing',[24,-10,-12,0,6,0]],['4-2 Intl',[-14,14,10,8,0,-8]],['6-3',[8,0,8,-10,8,0]]];
+const ROT_RCV35=[['W-Receive',[0,0,30,0,-10,0],[0,0,0,0,0,0]],['3-Passer',[-20,0,40,0,20,-20],[0,0,0,0,0,0]],['2-Passer',[-30,0,60,-10,40,-40],[0,0,0,0,0,0]],['Stack Left',[0,-20,30,0,0,10],[-0.4,0,-0.4,0,0,-0.4]],['Stack Right',[0,-20,30,0,0,10],[0.4,0,0.4,0,0,0.4]]];
+const ROT_DEP35=[['Standard',0,1],['Deep Defense',40,1],['Press Net',-30,1],['Wide',0,1.25]];
+const ROT_BACK35=[['Center Back',[0,0,0,0,0,0]],['Rotational L',[0,0,-20,0,30,-10]],['Perimeter',[0,0,30,0,40,30]],['Rotational R',[0,0,20,0,-10,30]],['Middle Up',[0,0,0,0,-90,0]]];
+const ROT35=[]; for(const s of ROT_SYS35) for(const r of ROT_RCV35) for(const d of ROT_DEP35) for(const b of ROT_BACK35) ROT35.push({name:`${s[0]} · ${r[0]} · ${d[0]} · ${b[0]}`,s,r,d,b});
+function rotFor35(side){ const T=team(side); if(!T) return null; if(T.rot35==null){ const mine=game.human&&game.human.side===side, pick=Save.data.rot35; T.rot35=mine&&pick!=null&&pick>=0?pick:(Math.random()*ROT35.length)|0; } return ROT35[T.rot35]; }
+function applyRot35(){ for(const sd of ['L','R']){ const T=team(sd); if(!T||T.players.length<6) continue; const R=rotFor35(sd); if(!R) continue; const d=DIRS[sd], serving=game.servingSide===sd;
+    T.players.forEach((p,i)=>{ if(p===game.server) return; let h=SIX_HOME[i]+R.s[1][i]+R.b[1][i]+R.d[1]*(isBack(p)?1:0.2)+(serving?0:R.r[1][i]); h=clamp(h,60,600); p.x=NET_X-d*h; p.homeX=p.x;
+      const L0=SIX_LANE[i]||0; p.rotLane35=clamp(L0*R.d[2]+(serving?0:R.r[2][i]),-1.2,1.2); }); } }
+{ const _rr=resetRally; resetRally=function(){ const r=_rr.apply(this,arguments); try{ if(game.mode!=='demo') applyRot35(); }catch(e){ console.error(e); } return r; }; }
+{ const _bm=beginMatch; beginMatch=function(){ const r=_bm.apply(this,arguments); try{ for(const s of ['L','R']){ const T=team(s); if(T) T.rot35=null; } if(game.mode!=='demo'&&game.human&&team(game.human.side).players.length>=6){ const R=rotFor35(game.human.side); setTimeout(()=>{ try{ toast('Rotation: '+R.name); }catch(e){} },1800); } }catch(e){} return r; }; }
+{ const _rs=renderSettings; renderSettings=function(){ _rs(); try{ if($('st_rot35')) return; const q=$('st_crowd33')||$('st_blood25'); if(!q) return; const cur=Save.data.rot35==null?-1:Save.data.rot35;
+    let opts='<option value="-1">Auto (a different one each match)</option>'; for(const s of ROT_SYS35){ opts+=`<optgroup label="${s[0]}">`; ROT35.forEach((R,i)=>{ if(R.s===s) opts+=`<option value="${i}" ${i===cur?'selected':''}>${esc(R.name)}</option>`; }); opts+='</optgroup>'; }
+    q.closest('.field').insertAdjacentHTML('beforebegin',`<div class="field"><label>🔄 Rotation (your 6v6 team) — ${ROT35.length} to choose from</label><select id="st_rot35">${opts}</select><div class="text-[11px] text-slate-400 mt-1">System · serve-receive · depth · back-row shape. Changes where everyone stands for serve and receive.</div></div>`);
+    $('st_rot35').onchange=e=>{ Save.data.rot35=+e.target.value; Save.store(); toast(Save.data.rot35<0?'Rotation: Auto':'Rotation: '+ROT35[Save.data.rot35].name); }; }catch(e){ console.error(e); } }; }
+
+/* ---------------- 3. new ball, net, block and floor sounds ----------------
+   Layered synthesis: a sharp leather slap, a body thump, the air, and a short
+   gym reverb. The net gets a mesh rustle, a tape thud and a cable ring. */
+const AUD35={rev:null,out:null};
+function bus35(){ const a=ac(); if(!a) return null; if(AUD35.out&&AUD35.ctx===a) return AUD35; AUD35.ctx=a; const out=a.createGain(); let vol=1; try{ vol=+set8('vol'); if(isNaN(vol)) vol=1; }catch(e){} out.gain.value=0.9*vol; out.connect(a.destination);
+  const len=Math.floor(a.sampleRate*0.9), ir=a.createBuffer(2,len,a.sampleRate); for(let ch=0;ch<2;ch++){ const d=ir.getChannelData(ch); for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/len,3.2)*(i<a.sampleRate*0.012?0.2:1); }
+  const cv=a.createConvolver(); cv.buffer=ir; const wet=a.createGain(); wet.gain.value=0.16; cv.connect(wet); wet.connect(out); AUD35.rev=cv; AUD35.out=out; return AUD35; }
+function nz35(t0,dur,vol,type,f,q,rev){ const B=bus35(); if(!B) return; const a=B.ctx, n=Math.max(16,Math.floor(a.sampleRate*dur)), buf=a.createBuffer(1,n,a.sampleRate), d=buf.getChannelData(0); for(let i=0;i<n;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/n,2.2);
+  const s=a.createBufferSource(); s.buffer=buf; const fl=a.createBiquadFilter(); fl.type=type; fl.frequency.value=f; fl.Q.value=q||0.8; const g=a.createGain(); g.gain.value=vol; s.connect(fl); fl.connect(g); g.connect(B.out); if(rev) g.connect(B.rev); s.start(a.currentTime+t0); }
+function tn35(t0,f,f2,dur,vol,type,rev){ const B=bus35(); if(!B) return; const a=B.ctx, o=a.createOscillator(), g=a.createGain(), t=a.currentTime+t0; o.type=type||'sine'; o.frequency.setValueAtTime(f,t); if(f2) o.frequency.exponentialRampToValueAtTime(f2,t+dur); g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0008,t+dur); o.connect(g); g.connect(B.out); if(rev) g.connect(B.rev); o.start(t); o.stop(t+dur+0.02); }
+const ok35=()=>!muted&&game.mode!=='demo'&&set8('newSfx35')!==false;
+SET8_DEFAULT.newSfx35=true;
+const SFX35={
+  hit(p){ p=p==null?0.6:p; nz35(0,0.022,0.55+p*0.4,'highpass',3800,0.7,true); nz35(0.002,0.09,0.35+p*0.35,'bandpass',900+p*500,1.1,true); tn35(0,150+p*50,62,0.13,0.28+p*0.3,'sine',true); if(p>0.7) nz35(0.01,0.18,0.12*p,'bandpass',5200,0.6,false); },
+  set(){ nz35(0,0.018,0.18,'highpass',3000,0.8,true); nz35(0.004,0.05,0.14,'bandpass',1500,1.4,true); tn35(0,260,180,0.05,0.06,'sine'); },
+  block(){ nz35(0,0.02,0.7,'highpass',3200,0.7,true); nz35(0.012,0.025,0.5,'highpass',2800,0.7,true); nz35(0.005,0.14,0.45,'bandpass',700,0.8,true); tn35(0,110,48,0.22,0.45,'sine',true); },
+  net(){ nz35(0,0.35,0.22,'bandpass',2600,1.6,true); nz35(0,0.08,0.3,'bandpass',420,1.2,true); tn35(0,180,120,0.12,0.18,'sine'); tn35(0.01,420,400,0.6,0.05,'triangle',true); tn35(0.01,633,620,0.45,0.025,'triangle',true); },
+  land(){ tn35(0,95,46,0.16,0.4,'sine',true); nz35(0,0.07,0.25,'lowpass',900,0.7,true); nz35(0.002,0.03,0.2,'highpass',2400,0.7,false); }
+};
+for(const k of Object.keys(SFX35)){ const old=sfx[k]; if(typeof old!=='function') continue; sfx[k]=function(...a){ if(!ok35()) return old.apply(sfx,a); try{ if(typeof rec==='function') rec('sfx.'+k,a); }catch(e){} try{ SFX35[k](...a); }catch(e){ return old.apply(sfx,a); } }; }
+{ const _rs=renderSettings; renderSettings=function(){ _rs(); try{ if($('st_sfx35')) return; const q=$('st_sta33'); if(!q) return; q.closest('.field').insertAdjacentHTML('afterend',tog('st_sfx35','New ball & net sounds',set8('newSfx35')!==false,'Layered leather slap, body thump and gym echo; real net rustle and tape thud.')+tog('st_bd35','Ball depth (cross-court)',set8('bdepth35')!==false,'The ball travels toward or away from the camera so cross-court and line shots look different.'));
+    $('st_sfx35').onclick=()=>{ setSet8('newSfx35',!(set8('newSfx35')!==false)); renderSettings(); }; $('st_bd35').onclick=()=>{ setSet8('bdepth35',!(set8('bdepth35')!==false)); renderSettings(); }; }catch(e){} }; }
+</script>
+<script>
+'use strict';
+/* =========================================================================
+   v35 — VFX REWORK + CUTSCENE IMAGE QUALITY
+   In matches: every contact now has its own layered effect —
+     spike: shockwave ring, radial speed sparks, a white impact flash on the
+            hand, and wind lines peeling off the ball while it flies fast
+     block: star-burst of hand sparks and a short screen punch
+     dig:   splash ring at the arms and floor-skid dust for dives
+     set:   soft halo + rising sparkles
+     serve: toss swirl and a contact burst
+     ball landing: floor flash, crack decal, debris and dust that settle
+   Cutscenes: anime-style bloom, color grading and light rays on every scene.
+   ========================================================================= */
+SET8_DEFAULT.vfx35=true;
+const VFX35={P:[],R:[],S:[],D:[]};
+const vOn35=()=>set8('vfx35')!==false&&game.mode!=='demo';
+function vRing35(x,y,col,r,life,w){ if(VFX35.R.length<60) VFX35.R.push({x,y,col,r0:r*0.15,r,life,max:life,w:w||4}); }
+function vSpark35(x,y,col,n,sp,life,g){ for(let i=0;i<n&&VFX35.P.length<700;i++){ const a=Math.random()*PI*2, v=sp*(0.35+Math.random()*0.75); VFX35.P.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:life*(0.6+Math.random()*0.5),max:life,col,len:4+Math.random()*10,g:g==null?300:g}); } }
+function vStreak35(x,y,ang,col,n,len){ for(let i=0;i<n&&VFX35.S.length<120;i++){ const a=ang+(Math.random()-0.5)*0.9; VFX35.S.push({x,y,a,len:len*(0.5+Math.random()),life:0.22,max:0.22,col,off:Math.random()*20}); } }
+function vDust35(x,n,big){ for(let i=0;i<n&&VFX35.P.length<700;i++) VFX35.P.push({x:x+(Math.random()-0.5)*30,y:FLOOR-2,vx:(Math.random()-0.5)*(big?380:220),vy:-Math.random()*(big?220:120),life:0.7+Math.random()*0.5,max:1.2,col:'rgba(226,232,240,.55)',dust:true,sz:4+Math.random()*7,g:180}); }
+function vDecal35(x,col){ VFX35.D.push({x,col,life:5,max:5,seed:(Math.random()*999)|0}); if(VFX35.D.length>8) VFX35.D.shift(); }
+function vStep35(dt){ for(const p of VFX35.P){ p.life-=dt; p.vy+=p.g*dt; p.x+=p.vx*dt; p.y+=p.vy*dt; if(p.dust){ p.vx*=0.94; p.sz+=dt*6; } } VFX35.P=VFX35.P.filter(p=>p.life>0);
+  for(const r of VFX35.R) r.life-=dt; VFX35.R=VFX35.R.filter(r=>r.life>0); for(const s of VFX35.S) s.life-=dt; VFX35.S=VFX35.S.filter(s=>s.life>0); for(const d of VFX35.D) d.life-=dt; VFX35.D=VFX35.D.filter(d=>d.life>0); }
+function vDraw35(c){ c.save();
+  for(const d of VFX35.D){ const a=Math.min(1,d.life/1.5)*0.75, R=seeded(d.seed); c.strokeStyle=`rgba(30,20,10,${a})`; c.lineWidth=1.6; for(let i=0;i<9;i++){ let x=d.x, y=FLOOR+2; const ang=(R()-0.5)*PI*0.95, L=16+R()*36; c.beginPath(); c.moveTo(x,y); for(let k=1;k<=3;k++){ x+=Math.cos(ang)*L/3+(R()-0.5)*6; y+=Math.abs(Math.sin(ang))*L/12*(R()<0.5?1:-1); c.lineTo(x,y); } c.stroke(); }
+    const g=c.createRadialGradient(d.x,FLOOR,1,d.x,FLOOR,46); g.addColorStop(0,rgba(d.col,0.35*a)); g.addColorStop(1,rgba(d.col,0)); c.fillStyle=g; c.beginPath(); c.ellipse(d.x,FLOOR+1,46,10,0,0,7); c.fill(); }
+  for(const p of VFX35.P){ const a=Math.max(0,p.life/p.max); if(p.dust){ c.globalAlpha=a*0.7; c.fillStyle=p.col; c.beginPath(); c.arc(p.x,p.y,p.sz,0,7); c.fill(); continue; }
+    c.globalAlpha=a; c.strokeStyle=p.col; c.lineWidth=2; c.lineCap='round'; const v=Math.hypot(p.vx,p.vy)||1; c.beginPath(); c.moveTo(p.x,p.y); c.lineTo(p.x-p.vx/v*p.len,p.y-p.vy/v*p.len); c.stroke(); }
+  c.globalCompositeOperation='lighter';
+  for(const r of VFX35.R){ const k=1-r.life/r.max, rad=r.r0+(r.r-r.r0)*(1-Math.pow(1-k,3)); c.globalAlpha=(1-k)*0.9; c.strokeStyle=r.col; c.lineWidth=r.w*(1-k)+1; c.beginPath(); c.ellipse(r.x,r.y,rad,rad*0.86,0,0,7); c.stroke(); }
+  for(const s of VFX35.S){ const k=1-s.life/s.max; c.globalAlpha=(1-k)*0.8; c.strokeStyle=s.col; c.lineWidth=2.2; const d0=s.off+k*40, d1=d0+s.len; c.beginPath(); c.moveTo(s.x+Math.cos(s.a)*d0,s.y+Math.sin(s.a)*d0); c.lineTo(s.x+Math.cos(s.a)*d1,s.y+Math.sin(s.a)*d1); c.stroke(); }
+  c.restore(); }
+/* ball wind: thin air lines peeling off a fast ball */
+const WIND35=[];
+function windStep35(dt){ const v=Math.hypot(ball.vx,ball.vy); if(ball.live&&!ball.held&&!ball.serveToss&&v>1250&&WIND35.length<40){ const a=Math.atan2(ball.vy,ball.vx); for(let i=0;i<2;i++){ const o=(Math.random()-0.5)*BALL_R*2.4; WIND35.push({x:ball.x-Math.sin(a)*o,y:ball.y+Math.cos(a)*o,a,len:30+Math.random()*50*(v/2000),life:0.18,max:0.18}); } }
+  for(const w of WIND35) w.life-=dt; for(let i=WIND35.length-1;i>=0;i--) if(WIND35[i].life<=0) WIND35.splice(i,1); }
+function windDraw35(c){ if(!WIND35.length) return; c.save(); c.globalCompositeOperation='lighter'; c.lineCap='round'; for(const w of WIND35){ const k=w.life/w.max; c.globalAlpha=k*0.55; c.strokeStyle='#e0f2fe'; c.lineWidth=1.4; c.beginPath(); c.moveTo(w.x,w.y); c.lineTo(w.x-Math.cos(w.a)*w.len,w.y-Math.sin(w.a)*w.len); c.stroke(); } c.restore(); }
+/* hooks */
+const kitCol35=p=>{ try{ const k=p.kit||team(p.side).kit; return k.c1==='#18181b'||k.c1==='#111111'?k.c2:k.c1; }catch(e){ return '#ffffff'; } };
+{ const _da=doAttack; doAttack=function(p,kind){ _da(p,kind); try{ if(!vOn35()||ball.lastPlayer!==p||!ball.live) return; const v=Math.hypot(ball.vx,ball.vy), a=Math.atan2(ball.vy,ball.vx), col=kitCol35(p);
+    if(kind==='TIP'||kind==='FEINT'){ vRing35(ball.x,ball.y,'#e2e8f0',40,0.3,2); return; }
+    vRing35(ball.x,ball.y,'#ffffff',60+v*0.04,0.32,6); vRing35(ball.x,ball.y,col,30+v*0.03,0.42,4); vSpark35(ball.x,ball.y,'#fff7d6',10+((v/200)|0),600+v*0.4,0.35,0); vStreak35(ball.x,ball.y,a+PI,'#ffffff',8,40+v*0.03); }catch(e){} }; }
+{ const _bc=blockCheck; blockCheck=function(){ const before=ball.kind; const r=_bc.apply(this,arguments); try{ if(vOn35()&&ball.kind==='BLOCK'&&before!=='BLOCK'){ const p=ball.lastPlayer; vSpark35(ball.x,ball.y,'#fde68a',22,700,0.4,200); vRing35(ball.x,ball.y,'#ffffff',90,0.35,7); vRing35(ball.x,ball.y,p?kitCol35(p):'#fde047',55,0.45,4); try{ fx.shake(9); }catch(e){} } }catch(e){} return r; }; }
+{ const _dd=doDig; doDig=function(p,z){ _dd.apply(this,arguments); try{ if(!vOn35()||ball.lastPlayer!==p) return; vRing35(ball.x,ball.y,'#a5f3fc',48,0.3,3); vSpark35(ball.x,ball.y,'#e0f2fe',8,280,0.3,500); if(p.state==='dive') vDust35(p.x,10,true); }catch(e){} }; }
+{ const _ds=doSet; doSet=function(p){ const r=_ds.apply(this,arguments); try{ if(vOn35()){ vRing35(ball.x,ball.y,'#fef9c3',36,0.4,2.5); for(let i=0;i<6;i++) VFX35.P.push({x:ball.x+(Math.random()-0.5)*20,y:ball.y,vx:(Math.random()-0.5)*40,vy:-120-Math.random()*120,life:0.6,max:0.6,col:'#fef08a',len:3,g:-60}); } }catch(e){} return r; }; }
+{ const _sv=doServe; doServe=function(p){ _sv.apply(this,arguments); try{ if(vOn35()){ const v=Math.hypot(ball.vx,ball.vy); vRing35(ball.x,ball.y,'#ffffff',40+v*0.03,0.3,4); if(v>1300) vStreak35(ball.x,ball.y,Math.atan2(ball.vy,ball.vx)+PI,'#ffffff',6,50); } }catch(e){} }; }
+{ const _lb=landBall; landBall=function(x){ const v=Math.hypot(ball.vx,ball.vy), last=ball.lastPlayer; const r=_lb.apply(this,arguments); try{ if(vOn35()){ const col=last?kitCol35(last):'#ffffff'; vRing35(x,FLOOR,'#ffffff',50+v*0.04,0.4,5); vDust35(x,8+((v/150)|0),v>1500); if(v>1100) vDecal35(x,col); if(v>1500){ vSpark35(x,FLOOR-4,'#fde68a',12,500,0.4,900); } } }catch(e){} return r; }; }
+{ const _di=drawIndicators; drawIndicators=function(c,dt){ try{ if(vOn35()){ const d=Math.min(0.05,dt||0.016); vStep35(d); windStep35(d); vDraw35(c); windDraw35(c); } }catch(e){} return _di(c,dt); }; }
+{ const _bm=beginMatch; beginMatch=function(){ VFX35.P=[]; VFX35.R=[]; VFX35.S=[]; VFX35.D=[]; WIND35.length=0; return _bm.apply(this,arguments); }; }
+{ const _rs=renderSettings; renderSettings=function(){ _rs(); try{ if($('st_vfx35')) return; const q=$('st_sfx35')||$('st_sta33'); if(!q) return; q.closest('.field').insertAdjacentHTML('afterend',tog('st_vfx35','New VFX',set8('vfx35')!==false,'Shockwaves, sparks, ball wind, floor cracks and dust on every touch.')+tog('st_post35','Cutscene film look',set8('post35')!==false,'Bloom, color grading and light rays in every cutscene.'));
+    $('st_vfx35').onclick=()=>{ setSet8('vfx35',!(set8('vfx35')!==false)); renderSettings(); }; $('st_post35').onclick=()=>{ setSet8('post35',!(set8('post35')!==false)); renderSettings(); }; }catch(e){} }; }
+
+/* ---------------- cutscene film look ---------------- */
+SET8_DEFAULT.post35=true;
+const POST35={sc:null};
+function post35(c){ if(set8('post35')===false) return; const cv_=c.canvas, W=cv_.width, H=cv_.height; if(!W||!H) return; c.save(); c.setTransform(1,0,0,1,0,0);
+  // bloom: a quarter-size copy screened back over the frame
+  const P=POST35; if(!P.sc){ P.sc=document.createElement('canvas'); P.sx=P.sc.getContext('2d'); } const w=Math.max(2,(W/5)|0), h=Math.max(2,(H/5)|0); if(P.sc.width!==w||P.sc.height!==h){ P.sc.width=w; P.sc.height=h; }
+  P.sx.imageSmoothingEnabled=true; P.sx.globalCompositeOperation='copy'; P.sx.drawImage(cv_,0,0,w,h); P.sx.globalCompositeOperation='multiply'; P.sx.drawImage(P.sc,0,0); // squares the image: only bright areas survive
+  c.imageSmoothingEnabled=true; c.globalCompositeOperation='screen'; c.globalAlpha=0.32; c.drawImage(P.sc,0,0,W,H); c.globalAlpha=0.18; c.drawImage(P.sc,-W*0.02,-H*0.02,W*1.04,H*1.04);
+  // grade: cool shadows on top, warm highlights below
+  c.globalCompositeOperation='soft-light'; c.globalAlpha=0.35; const g=c.createLinearGradient(0,0,0,H); g.addColorStop(0,'#1e3a8a'); g.addColorStop(0.55,'#7c7c7c'); g.addColorStop(1,'#f59e0b'); c.fillStyle=g; c.fillRect(0,0,W,H);
+  // light rays from the top
+  c.globalCompositeOperation='lighter'; const t=(CS.T22||0); c.globalAlpha=0.06; for(let i=0;i<5;i++){ const x=W*(0.15+i*0.18)+Math.sin(t*0.4+i)*W*0.03; const rg=c.createLinearGradient(x,0,x+W*0.1,H*0.8); rg.addColorStop(0,'rgba(255,255,255,.9)'); rg.addColorStop(1,'rgba(255,255,255,0)'); c.fillStyle=rg; c.beginPath(); c.moveTo(x,0); c.lineTo(x+W*0.05,0); c.lineTo(x+W*0.2,H*0.85); c.lineTo(x+W*0.08,H*0.85); c.closePath(); c.fill(); }
+  c.restore(); }
+{ const _bars=bars22; bars22=function(c){ try{ post35(c); }catch(e){} return _bars.apply(this,arguments); }; }
+</script>
+<script>
+'use strict';
+/* =========================================================================
+   v35 — MANOR GYM · PRE-GAME WARM-UP · POST-GAME · FIRST-LAUNCH TUTORIAL
+   ========================================================================= */
+/* ---------------- Manor High's real gym ----------------
+   White walls, steel trusses and rows of lights, a red band with MANOR in big
+   red-and-black letters, red/black bleachers and a maple floor with red edges. */
+ARENAS.manor_gym={name:'Manor High Gym',jp:'マナー体育館',theme:'manorGym',wall:['#f8fafc','#e2e8f0'],floor:['#b91c1c','#7f1d1d'],court:'#e2b071',free:'#b91c1c',rafter:'#111827',light:'#ffffff',crowd:0.5,banner:'MANOR',windows:'theme',seat:'#b91c1c',tier:'Home'};
+ARENA_THEMES.manorGym={
+  scene(c,A,X0,X1,Y0,Y1,R){ c.fillStyle='#f1f5f9'; c.fillRect(X0,Y0,X1-X0,372-Y0); c.fillStyle='#cbd5e1'; c.fillRect(X0,Y0,X1-X0,40-Y0);
+    // ceiling trusses + lights
+    c.strokeStyle='#334155'; c.lineWidth=3; for(let x=Math.floor(X0/200)*200;x<X1;x+=200){ c.beginPath(); c.moveTo(x,Y0); c.lineTo(x+100,40); c.lineTo(x+200,Y0); c.stroke(); }
+    c.fillStyle='#0f172a'; c.fillRect(X0,36,X1-X0,6); for(let x=Math.floor(X0/90)*90+20;x<X1;x+=90){ c.fillStyle='#e2e8f0'; c.fillRect(x,42,36,6); const g=c.createRadialGradient(x+18,48,2,x+18,48,60); g.addColorStop(0,'rgba(255,255,255,.95)'); g.addColorStop(1,'rgba(255,255,255,0)'); c.fillStyle=g; c.beginPath(); c.arc(x+18,48,60,0,7); c.fill(); }
+    // black upper banner row
+    c.fillStyle='#111827'; c.fillRect(X0,150,X1-X0,46); for(let x=Math.floor(X0/260)*260;x<X1;x+=260){ c.fillStyle='#b91c1c'; c.fillRect(x+12,156,236,34); c.fillStyle='#111827'; c.font='900 22px Bangers, Nunito, sans-serif'; c.textAlign='center'; c.fillText('MANOR HIGH',x+130,181); }
+    // big red MANOR band
+    c.fillStyle='#b91c1c'; c.fillRect(X0,214,X1-X0,90); c.fillStyle='#111827'; c.fillRect(X0,210,X1-X0,6); c.fillRect(X0,302,X1-X0,6);
+    c.save(); c.font='900 78px Bangers, Nunito, sans-serif'; c.textAlign='center'; c.textBaseline='middle'; for(let x=Math.floor(X0/620)*620+310;x<X1+300;x+=620){ c.lineWidth=10; c.strokeStyle='#111827'; c.strokeText('M A N O R',x,262); c.fillStyle='#ef4444'; c.fillText('M A N O R',x,262); c.lineWidth=2; c.strokeStyle='#fecaca'; c.strokeText('M A N O R',x,262); } c.restore();
+    // flags + banners
+    for(const fx_ of [NET_X+560,NET_X-620]){ c.fillStyle='#1e3a8a'; c.fillRect(fx_,70,46,30); c.fillStyle='#fff'; for(let i=0;i<4;i++) c.fillRect(fx_+18,72+i*8,28,4); c.fillStyle='#dc2626'; for(let i=0;i<4;i++) c.fillRect(fx_+18,76+i*8,28,4); }
+    c.fillStyle='#e5e7eb'; c.fillRect(X0,308,X1-X0,64); c.fillStyle='#b91c1c'; c.fillRect(X0,360,X1-X0,12); },
+  stands(c,A,X0,X1,Y0,Y1,R){ for(let r=0;r<7;r++){ const y=372+r*32; c.fillStyle=r%2?'#111827':'#b91c1c'; c.fillRect(X0,y,X1-X0,32); c.fillStyle=r%2?'#1f2937':'#dc2626'; c.fillRect(X0,y,X1-X0,5); c.fillStyle='rgba(0,0,0,.25)'; c.fillRect(X0,y+28,X1-X0,4); } }
+};
+{ const _bm=beginMatch; beginMatch=function(cfg){ try{ if(cfg&&cfg.mode!=='online'&&cfg.mode!=='demo'){ const home=findTeam(cfg.teamL); const isManor=cfg.teamL==='manor'||(home&&home.players&&home.players.some(d=>d&&d.id==='mh_grant'))||cfg.apexKind==='manor25';
+      if(isManor&&(cfg.arena==='school'||!cfg.arena)) cfg.arena='manor_gym'; } }catch(e){} return _bm.apply(this,arguments); }; }
+
+/* ---------------- pre-game warm-up ----------------
+   Before matches the teams warm up the way Manor does in their gym: players
+   pair up for pepper (dig – set – hit back and forth), the rest jog the line
+   and stretch, while the crowd fills in. Tap / press any key to skip. */
+SET8_DEFAULT.warm35=true;
+const WU35={on:false,t:0,dur:8,balls:[],pairs:[],solo:[]};
+function warmOK35(cfg){ if(!cfg||set8('warm35')===false||(navigator.webdriver&&!window.__force35)) return false; if(['online','demo','survival'].includes(cfg.mode)) return false; if(cfg.practice25||cfg.tut35||cfg.arcade33==='blitz') return false; return true; }
+function startWarm35(){ const W=WU35; W.on=true; W.t=0; W.balls=[]; W.pairs=[]; W.solo=[];
+  for(const sd of ['L','R']){ const T=team(sd); if(!T) continue; const d=DIRS[sd], P=T.players.slice();
+    for(let i=0;i+1<P.length;i+=2){ const A=P[i], B=P[i+1], cx=NET_X-d*(200+((i/2)%3)*140); A.x=cx-60; B.x=cx+60; A.dir=1; B.dir=-1; A.y=B.y=FLOOR; A.onGround=B.onGround=true; W.pairs.push({A,B,step:0,ball:{x:A.x,y:FLOOR-110,vx:0,vy:0,rot:0},t0:Math.random()*0.6,from:A}); }
+    if(P.length%2) W.solo.push(P[P.length-1]); }
+  for(const pr of W.pairs){ pr.idx=0; pepStep35(pr); }
+  try{ announce('PRE-GAME WARM-UP','ウォームアップ','Tap or press any key to skip','#fde047'); }catch(e){} }
+function tossPep35(pr,from,to,kind){ const b=pr.ball, dx=to.x-from.x, T=kind==='hit'?0.55:kind==='set'?0.95:0.8, peak=kind==='hit'?60:kind==='set'?170:130; b.x=from.x+Math.sign(dx)*14; b.y=FLOOR-from.h*(kind==='hit'?1.05:0.75); const ty=FLOOR-to.h*(kind==='set'?0.8:0.62);
+  b.vx=(to.x-Math.sign(dx)*14-b.x)/T; b.vy=(ty-b.y-0.5*GB*T*T)/T; if(kind!=='hit') b.vy=Math.min(b.vy,-Math.sqrt(2*GB*peak)); pr.target=to; pr.kind=kind; pr.arrive=T; pr.tt=0;
+  from.setState(kind==='hit'?'spike':kind==='set'?'set':'bump'); from.swingT=kind==='hit'?0.28:0; from.stateT=0; try{ if(kind==='hit') sfx.hit(0.35); else sfx.set(); }catch(e){} }
+const PEP35=[['A','hit','B'],['B','dig','A'],['A','set','B'],['B','hit','A'],['A','dig','B'],['B','set','A']];
+function pepStep35(pr){ const q=PEP35[pr.idx%6]; tossPep35(pr,pr[q[0]],pr[q[2]],q[1]); }
+function stepWarm35(dt){ const W=WU35; W.t+=dt; game.time+=dt;
+  for(const pr of W.pairs){ const b=pr.ball; pr.tt+=dt; b.vy+=GB*dt; b.x+=b.vx*dt; b.y+=b.vy*dt; b.rot+=dt*8;
+    if(pr.tt>=pr.arrive){ pr.idx++; pepStep35(pr); } }
+  for(const p of game.players){ p.anim=(p.anim||0)+dt; p.stateT=(p.stateT||0)+dt; if(p.swingT>0) p.swingT=Math.max(0,p.swingT-dt); if(p.stateT>0.45&&p.state!=='run'&&!W.solo.includes(p)) p.setState('idle'); }
+  for(const p of W.solo){ const d=DIRS[p.side], x0=NET_X-d*120, x1=NET_X-d*560, k=(Math.sin(W.t*0.9+p.x*0.001)+1)/2, tx=lerp(x0,x1,k); p.vx=(tx-p.x)*2; p.x+=p.vx*dt; p.dir=p.vx>=0?1:-1; if(Math.abs(p.vx)>30){ p.setState('run'); p.runPhase=(p.runPhase||0)+dt*12; } else p.setState(W.t%2<1?'land':'idle'); }
+  try{ crowdReact('L',0.004); crowdReact('R',0.004); }catch(e){}
+  if(W.t>=W.dur) endWarm35(); }
+function endWarm35(){ const W=WU35; if(!W.on) return; W.on=false; W.balls=[]; for(const p of game.players){ p.setState('idle'); p.swingT=0; p.y=FLOOR; p.vy=0; p.onGround=true; p.pose=null; } try{ resetRally(); }catch(e){ console.error(e); } try{ announce('MATCH START','試合開始','','#38bdf8'); }catch(e){} }
+{ const _ss=simStep; simStep=function(){ if(WU35.on){ try{ stepWarm35(DT); }catch(e){ console.error(e); WU35.on=false; } return; } return _ss(); }; }
+{ const _di=drawIndicators; drawIndicators=function(c,dt){ _di(c,dt); try{ if(WU35.on){ for(const pr of WU35.pairs){ const b=pr.ball; if(typeof drawBallAt==='function') drawBallAt(c,b.x,b.y,b.rot); else { c.fillStyle='#fde047'; c.beginPath(); c.arc(b.x,b.y,BALL_R,0,7); c.fill(); } }
+      c.save(); c.font='900 28px Bangers, Nunito, sans-serif'; c.textAlign='center'; c.lineWidth=6; c.strokeStyle='#020617'; c.fillStyle='#fde047'; c.strokeText('PRE-GAME WARM-UP',NET_X,NET_TOP-150); c.fillText('PRE-GAME WARM-UP',NET_X,NET_TOP-150); c.font='800 15px Nunito'; c.fillStyle='#e2e8f0'; const s='pepper · jog the line · stretch — tap or press any key to skip · '+Math.ceil(WU35.dur-WU35.t)+'s'; c.strokeText(s,NET_X,NET_TOP-122); c.fillText(s,NET_X,NET_TOP-122); c.restore(); } }catch(e){} }; }
+{ const _bm=beginMatch; beginMatch=function(cfg){ const r=_bm.apply(this,arguments); try{ WU35.on=false; POST35G.on=false; if(warmOK35(cfg)&&!game.netGuest) setTimeout(()=>{ try{ if(game.teams&&game.teams.L&&game.state==='SERVE'&&(team('L').score+team('R').score)===0) startWarm35(); }catch(e){} },400); }catch(e){} return r; }; }
+const skipWarm35=()=>{ if(WU35.on&&WU35.t>0.6) endWarm35(); };
+addEventListener('keydown',e=>{ if(WU35.on&&!e.repeat) skipWarm35(); },true); addEventListener('pointerdown',()=>{ if(WU35.on) skipWarm35(); },true);
+
+/* ---------------- post-game: handshake line + MVP ---------------- */
+const POST35G={on:false,t:0,dur:5.5,mvp:null};
+function mvp35(){ let best=null,bs=-1; for(const p of game.players){ const s=p.st||{}; const v=(s.kills||0)*3+(s.blocks||0)*3+(s.aces||0)*3+(s.digs||0)*1.5+(s.assists||0); if(v>bs){ bs=v; best=p; } } return best; }
+{ const _em=endMatch; endMatch=function(){ if(POST35G.done||POST35G.on||!game.teams||!game.teams.L||['online','demo'].includes(game.mode)||(game.lastCfg&&(game.lastCfg.tut35||game.lastCfg.practice25))||set8('warm35')===false||(navigator.webdriver&&!window.__force35)) { POST35G.done=false; return _em.apply(this,arguments); }
+    POST35G.on=true; POST35G.t=0; POST35G.mvp=mvp35(); POST35G.em=()=>{ POST35G.done=true; try{ _em.call(this); }finally{ POST35G.done=false; } };
+    for(const p of game.players){ p.setState('run'); p.post35x=NET_X-DIRS[p.side]*(40+game.players.filter(q=>q.side===p.side).indexOf(p)*34); }
+    try{ announce('GG · HANDSHAKE LINE','お疲れ様','Good game!','#e2e8f0'); }catch(e){} }; }
+function stepPost35(dt){ const S=POST35G; S.t+=dt; game.time+=dt; const k=S.t/S.dur;
+  for(const p of game.players){ p.anim=(p.anim||0)+dt; p.stateT=(p.stateT||0)+dt; p.y=FLOOR; p.onGround=true; p.vy=0; const d=DIRS[p.side];
+    const dx=p.post35x-p.x; if(Math.abs(dx)>4){ p.x+=Math.sign(dx)*Math.min(Math.abs(dx),280*dt); p.vx=Math.sign(dx)*280; p.dir=Math.sign(dx)||p.dir; p.runPhase=(p.runPhase||0)+dt*11; if(p.state!=='run') p.setState('run'); }
+    else { p.vx=0; p.dir=d; if(p.state!=='idle') p.setState('idle'); if(k>0.3&&Math.sin(S.t*6+game.players.indexOf(p)*1.3)>0.55) p.celebT=0.15; } }
+  if(S.t>=S.dur){ S.on=false; S.em&&S.em(); } }
+{ const _ss=simStep; simStep=function(){ if(POST35G.on){ try{ stepPost35(DT); }catch(e){ console.error(e); POST35G.on=false; POST35G.em&&POST35G.em(); } return; } return _ss(); }; }
+{ const _di=drawIndicators; drawIndicators=function(c,dt){ _di(c,dt); try{ if(POST35G.on){ const m=POST35G.mvp; c.save(); c.textAlign='center'; c.font='900 30px Bangers, Nunito, sans-serif'; c.lineWidth=6; c.strokeStyle='#020617'; c.fillStyle='#e2e8f0'; c.strokeText('GOOD GAME',NET_X,NET_TOP-160); c.fillText('GOOD GAME',NET_X,NET_TOP-160);
+      if(m){ c.font='900 20px Nunito'; c.fillStyle='#fde047'; const s=m.st||{}, t='🏅 MVP · '+m.name+' — '+(s.kills||0)+' K · '+(s.blocks||0)+' B · '+(s.aces||0)+' A · '+(s.digs||0)+' D'; c.strokeText(t,NET_X,NET_TOP-126); c.fillText(t,NET_X,NET_TOP-126); c.fillStyle='rgba(253,224,71,.25)'; c.beginPath(); c.arc(m.x,m.y-m.h*0.5,m.h*0.7,0,7); c.fill(); } c.restore(); } }catch(e){} }; }
+addEventListener('keydown',e=>{ if(POST35G.on&&POST35G.t>1&&!e.repeat){ POST35G.t=POST35G.dur; } },true);
+{ const _rs=renderSettings; renderSettings=function(){ _rs(); try{ if($('st_warm35')) return; const q=$('st_vfx35')||$('st_sta33'); if(!q) return; q.closest('.field').insertAdjacentHTML('afterend',tog('st_warm35','Warm-up & handshake line',set8('warm35')!==false,'Teams warm up before matches and shake hands at the net after. Skippable.'));
+    $('st_warm35').onclick=()=>{ setSet8('warm35',!(set8('warm35')!==false)); renderSettings(); }; }catch(e){} }; }
+
+/* ---------------- first-launch tutorial ---------------- */
+const TUT35={on:false,i:0,t:0,base:{}};
+const touchUI35=()=>{ try{ return typeof wantTouch==='function'?wantTouch():('ontouchstart' in window); }catch(e){ return false; } };
+const TUT_STEPS35=[
+  ['MOVE',()=>touchUI35()?'Drag on the left side of the screen to run left and right.':'Run with ◄ ► (A / D or the arrow keys).',p=>Math.abs(p.x-TUT35.base.x)>160],
+  ['JUMP',()=>touchUI35()?'Tap ▲ JUMP.':'Jump with ▲ (W / ↑ / Space).',p=>!p.onGround],
+  ['RECEIVE',()=>'Get under the ball when it comes over. Your player passes (bumps) it automatically — just be there.',p=>(p.st.digs||0)+(p.st.recv||0)>TUT35.base.digs||team(p.side).touches>0&&ball.lastPlayer===p],
+  ['SPIKE',()=>touchUI35()?'When your teammate sets the ball, tap JUMP, then SPIKE at the top. Hold ◄/► while you hit to aim line or CROSS-COURT.':'When your teammate sets, JUMP, then press SPIKE (J) at the top. Hold ◄/► while you hit to aim line or CROSS-COURT.',p=>TUT35.hits>0],
+  ['SERVE',()=>touchUI35()?'Your serve: tap SPIKE to toss, then again to hit. Hold JUMP for a jump serve.':'Your serve: press J to toss, then J again to hit. Jump before you hit for a jump serve.',p=>TUT35.serves>0],
+  ['BLOCK',()=>'When they attack, run to the net and JUMP in front of their hitter. You don\'t have to stuff it — just try once.',p=>!p.onGround&&p.airIntent==='block'],
+  ['SPECIAL',()=>touchUI35()?'Your special gauge is full. Tap ⚡ SPECIAL, then spike!':'Your special gauge is full. Press K, then spike!',p=>p.armed],
+  ['DONE',()=>'That\'s everything you need. Stamina, timeouts, synergies and more are in the Guide. Have fun!',p=>TUT35.t>4]];
+function startTutorial35(){ try{ startMatch25(['tsubame','mizuchi'],['bn_seiran_0','bn_seiran_1'],{nameL:'SEIRAN',colL:'#38bdf8',nameR:'PRACTICE',colR:'#64748b',arena:'school',diff:0,target:99,title:'TUTORIAL',jp:'チュートリアル',sub:'Learn the basics in two minutes',extra:{tut35:true,deuce:false}}); }catch(e){ console.error(e); return; }
+  TUT35.on=true; TUT35.i=0; TUT35.t=0; TUT35.hits=0; TUT35.serves=0; tutBase35(); tutUI35(); }
+function tutBase35(){ const p=game.human; TUT35.base={x:p?p.x:0,digs:p&&p.st?(p.st.digs||0)+(p.st.recv||0):0}; TUT35.t=0; if(TUT_STEPS35[TUT35.i]&&TUT_STEPS35[TUT35.i][0]==='SPECIAL'&&p){ p.gauge=100; p.specialCD=0; } }
+function tutUI35(){ let el=$('tut35'); if(!TUT35.on){ if(el) el.remove(); return; } if(!el){ el=document.createElement('div'); el.id='tut35'; el.style.cssText='position:fixed;left:50%;top:70px;transform:translateX(-50%);z-index:30;width:min(560px,92vw);background:rgba(2,6,23,.88);border:2px solid #fde047;border-radius:16px;padding:10px 14px;color:#f8fafc;font:700 14px Nunito,sans-serif;text-align:center;pointer-events:auto'; document.body.appendChild(el); }
+  const S=TUT_STEPS35[TUT35.i]; el.innerHTML=`<div style="font:900 10px Nunito;letter-spacing:.3em;color:#fde047">TUTORIAL · ${TUT35.i+1}/${TUT_STEPS35.length} · ${S[0]}</div><div style="margin-top:4px">${S[1]()}</div><div style="margin-top:6px;display:flex;gap:6px;justify-content:center"><button id="tut35n" class="tab" style="font-size:11px">NEXT ▶</button><button id="tut35s" class="tab" style="font-size:11px">SKIP TUTORIAL</button></div>`;
+  $('tut35n').onclick=()=>tutNext35(); $('tut35s').onclick=()=>endTutorial35(false); }
+function tutNext35(){ TUT35.i++; try{ sfx.ui(); }catch(e){} if(TUT35.i>=TUT_STEPS35.length){ endTutorial35(true); return; } tutBase35(); tutUI35(); if(TUT_STEPS35[TUT35.i][0]==='SERVE'){ try{ game.servingSide=game.human.side; resetRally(); }catch(e){} } }
+function endTutorial35(done){ TUT35.on=false; tutUI35(); Save.data.tut35=true; Save.store(); try{ if(done) toast('🎓 Tutorial complete! +100 coins'); if(done){ Save.data.coins+=100; Save.store(); coinsUI(); } }catch(e){} try{ show('scrMain'); }catch(e){} }
+{ const _ss=simStep; simStep=function(){ const r=_ss(); try{ if(TUT35.on&&game.human&&game.lastCfg&&game.lastCfg.tut35){ TUT35.t+=DT; const S=TUT_STEPS35[TUT35.i]; if(S&&S[2](game.human)) { tutNext35(); } else if(TUT35.t>40) tutNext35(); } }catch(e){} return r; }; }
+{ const _da=doAttack; doAttack=function(p){ _da.apply(this,arguments); if(TUT35.on&&p===game.human) TUT35.hits++; }; }
+{ const _sv=doServe; doServe=function(p){ _sv.apply(this,arguments); if(TUT35.on&&p===game.human) TUT35.serves++; }; }
+{ const _sh=show; show=function(id){ if(TUT35.on&&id!=='scrResult'){ TUT35.on=false; tutUI35(); } return _sh.apply(this,arguments); }; }
+/* first launch only: a brand-new save gets the tutorial; existing saves never see it */
+(function(){ try{ const D=Save.data, fresh=!D.tut35&&!(D.wins||D.losses)&&!(D.customs&&D.customs.length)&&!D.apex&&!D.career&&!D.wcup25&&!(D.coins>500); if(fresh&&!navigator.webdriver) setTimeout(()=>{ try{ if(!game.human||game.mode==='demo') startTutorial35(); }catch(e){} },1800); else if(!D.tut35){ D.tut35=true; Save.store(); } }catch(e){} })();
+{ const _rh=renderHome9; renderHome9=function(){ _rh(); try{ const g=document.querySelector('#home9 .tiles9'); if(!g||g.querySelector('[data-h35]')) return; const b=document.createElement('button'); b.className='tile9'; b.dataset.h35='tut';
+    b.innerHTML='<span class="i" style="background:#fde04733;border:1px solid #fde04788">🎓</span><span><b>Tutorial</b><span>Learn to move, receive, spike, serve, block</span></span>'; b.onclick=startTutorial35; const gd=g.querySelector('[data-h27="guide"]'); if(gd) gd.before(b); else g.appendChild(b); }catch(e){} }; try{ renderHome9(); }catch(e){} }
+</script>
 
 <script>
 'use strict';
