@@ -16441,6 +16441,73 @@ SET8_DEFAULT.flowCut36=true;
 { const _rs=renderSettings; renderSettings=function(){ _rs(); try{ if($('st_fc36')) return; const q=$('st_suit36')||$('st_auto36'); if(!q) return; q.closest('.field').insertAdjacentHTML('afterend',tog('st_fc36','Flow eye cut-in',set8('flowCut36')!==false,'A one-second eye close-up and slow motion when someone enters FLOW.'));
     $('st_fc36').onclick=()=>{ setSet8('flowCut36',!(set8('flowCut36')!==false)); renderSettings(); }; }catch(e){} }; }
 </script>
+<script>
+'use strict';
+/* =========================================================================
+   v39 — no more "ROTATE TO LANDSCAPE" screen
+   - Android (browser / home-screen app): locks to landscape on the first tap.
+   - iPhone / anything that can't lock: the whole game turns itself sideways
+     inside the portrait screen, so you just turn the phone — no blocking
+     screen. Touches, buttons, joystick and menus are remapped to match.
+   - Settings → "Auto-rotate" can turn this off.
+   Also: players always face the net when they bump, set, spike or serve.
+   ========================================================================= */
+SET8_DEFAULT.autoRot37=true;
+(function(){ const st=document.createElement('style'); st.textContent='#rotateHint{display:none!important}'; document.head.appendChild(st); })();
+const RT37={on:false,busy:false};
+(function(){
+  const dW=Object.getOwnPropertyDescriptor(window,'innerWidth'), dH=Object.getOwnPropertyDescriptor(window,'innerHeight');
+  const rW=()=>{ try{ return dW&&dW.get?dW.get.call(window):document.documentElement.clientWidth; }catch(e){ return document.documentElement.clientWidth; } };
+  const rH=()=>{ try{ return dH&&dH.get?dH.get.call(window):document.documentElement.clientHeight; }catch(e){ return document.documentElement.clientHeight; } };
+  RT37.rW=rW; RT37.rH=rH;
+  try{ Object.defineProperty(window,'innerWidth',{configurable:true,get(){ return RT37.on?rH():rW(); }}); Object.defineProperty(window,'innerHeight',{configurable:true,get(){ return RT37.on?rW():rH(); }}); }catch(e){}
+  try{ const vv=window.visualViewport; if(vv){ const P=VisualViewport.prototype, w=Object.getOwnPropertyDescriptor(P,'width'), h=Object.getOwnPropertyDescriptor(P,'height');
+      Object.defineProperty(vv,'width',{configurable:true,get(){ const a=w.get.call(vv), b=h.get.call(vv); return RT37.on?b:a; }}); Object.defineProperty(vv,'height',{configurable:true,get(){ const a=w.get.call(vv), b=h.get.call(vv); return RT37.on?a:b; }}); } }catch(e){}
+  // screen → game coordinates (content is rotated 90° clockwise, then shifted right by the screen width)
+  const map=(proto)=>{ if(!proto) return; const dx=Object.getOwnPropertyDescriptor(proto,'clientX'), dy=Object.getOwnPropertyDescriptor(proto,'clientY'); if(!dx||!dy) return;
+    Object.defineProperty(proto,'clientX',{configurable:true,get(){ return RT37.on?dy.get.call(this):dx.get.call(this); }});
+    Object.defineProperty(proto,'clientY',{configurable:true,get(){ return RT37.on?rW()-dx.get.call(this):dy.get.call(this); }});
+    const px=Object.getOwnPropertyDescriptor(proto,'pageX'), py=Object.getOwnPropertyDescriptor(proto,'pageY');
+    if(px&&py){ Object.defineProperty(proto,'pageX',{configurable:true,get(){ return RT37.on?py.get.call(this):px.get.call(this); }}); Object.defineProperty(proto,'pageY',{configurable:true,get(){ return RT37.on?rW()-px.get.call(this):py.get.call(this); }}); } };
+  try{ map(MouseEvent.prototype); }catch(e){} try{ if(window.Touch) map(Touch.prototype); }catch(e){}
+  const gb=Element.prototype.getBoundingClientRect; Element.prototype.getBoundingClientRect=function(){ const r=gb.call(this); if(!RT37.on) return r; const SW=rW(); return new DOMRect(r.top,SW-r.right,r.height,r.width); };
+  // layout rules that depend on screen size: copy the ones that fit the sideways game
+  let rotStyle=null;
+  const buildRules=()=>{ const LW=rH(), LH=rW(), out=[]; const ok=(cond)=>{ const parts=String(cond).toLowerCase().split(/\band\b/); let any=false;
+      for(let p of parts){ p=p.replace(/[()\s]/g,''); let m;
+        if((m=p.match(/^min-width:(\d+(\.\d+)?)px$/))){ if(!(LW>=+m[1])) return false; any=true; }
+        else if((m=p.match(/^max-width:(\d+(\.\d+)?)px$/))){ if(!(LW<=+m[1])) return false; any=true; }
+        else if((m=p.match(/^min-height:(\d+(\.\d+)?)px$/))){ if(!(LH>=+m[1])) return false; any=true; }
+        else if((m=p.match(/^max-height:(\d+(\.\d+)?)px$/))){ if(!(LH<=+m[1])) return false; any=true; }
+        else if(p==='') continue; else return false; } return any; };
+    for(const ss of document.styleSheets){ let rules; try{ rules=ss.cssRules; }catch(e){ continue; } if(!rules) continue;
+      for(const r of rules){ if(r instanceof CSSMediaRule&&ok(r.conditionText||r.media.mediaText)&&!matchMedia(r.conditionText||r.media.mediaText).matches){ for(const ir of r.cssRules) out.push(ir.cssText); } } }
+    out.push('#rotateHint{display:none!important} body.rot37 #cutCv{height:100%!important;width:100%!important} body.rot37 #flowCv36{width:100%!important;height:100%!important} body.rot37 #rotateHint{display:none!important} body.rot37 .max-h-\\[60vh\\],body.rot37 .max-h-\\[62vh\\],body.rot37 .max-h-\\[72vh\\],body.rot37 .max-h-\\[40vh\\]{max-height:80%!important}');
+    return out.join('\n'); };
+  const apply=()=>{ if(RT37.busy) return; RT37.busy=true; try{
+      const W0=rW(), H0=rH(), touch=('ontouchstart' in window)||navigator.maxTouchPoints>0, want=set8('autoRot37')!==false&&touch&&H0>W0&&W0<700;
+      if(want!==RT37.on||(want&&(RT37.w!==W0||RT37.h!==H0))){ RT37.on=want; RT37.w=W0; RT37.h=H0; const b=document.body;
+        if(want){ b.classList.add('rot37'); Object.assign(b.style,{position:'fixed',left:'0',top:'0',width:H0+'px',height:W0+'px',transformOrigin:'0 0',transform:`translateX(${W0}px) rotate(90deg)`,overflow:'hidden'});
+          if(!rotStyle){ rotStyle=document.createElement('style'); rotStyle.id='rot37css'; document.head.appendChild(rotStyle); } rotStyle.textContent=buildRules(); }
+        else { b.classList.remove('rot37'); ['position','left','top','width','height','transformOrigin','transform','overflow'].forEach(k=>b.style[k]=''); if(rotStyle) rotStyle.textContent=''; }
+        try{ resize(); }catch(e){} try{ window.dispatchEvent(new Event('resize')); }catch(e){} try{ window.applyT9&&window.applyT9(); }catch(e){} }
+      const h=document.getElementById('rotateHint'); if(h) h.style.display='none'; }finally{ RT37.busy=false; } };
+  RT37.apply=apply;
+  window.addEventListener('resize',()=>setTimeout(apply,30)); window.addEventListener('orientationchange',()=>setTimeout(apply,300)); try{ if(window.visualViewport) visualViewport.addEventListener('resize',()=>setTimeout(apply,30)); }catch(e){}
+  setTimeout(apply,0); setTimeout(apply,600);
+  // Android & desktop browsers that allow it: go fullscreen + lock landscape on the first tap
+  const lock=async()=>{ try{ if(RT37.locked) return; const el=document.documentElement; const touch=('ontouchstart' in window)||navigator.maxTouchPoints>0; if(!touch) return;
+      if(!document.fullscreenElement&&el.requestFullscreen&&!/iPhone|iPad|iPod/.test(navigator.userAgent)) await el.requestFullscreen({navigationUI:'hide'}).catch(()=>{});
+      if(screen.orientation&&screen.orientation.lock){ await screen.orientation.lock('landscape'); RT37.locked=true; setTimeout(apply,400); } }catch(e){} };
+  window.addEventListener('pointerdown',()=>{ if(set8('autoRot37')!==false) lock(); },{capture:true});
+})();
+/* the old blocking screen is never shown */
+{ const _r=resize; resize=function(){ _r.apply(this,arguments); try{ const h=document.getElementById('rotateHint'); if(h) h.style.display='none'; }catch(e){} }; }
+{ const _rs=renderSettings; renderSettings=function(){ _rs(); try{ if($('st_rot37')) return; const q=$('st_fc36')||$('st_suit36'); if(!q) return; q.closest('.field').insertAdjacentHTML('afterend',tog('st_rot37','Auto-rotate',set8('autoRot37')!==false,'On phones held upright, the game turns itself sideways (and locks landscape where the phone allows).'));
+    $('st_rot37').onclick=()=>{ setSet8('autoRot37',!(set8('autoRot37')!==false)); RT37.apply&&RT37.apply(); renderSettings(); }; }catch(e){} }; }
+/* ---------- always face the net on contact ---------- */
+{ const _sp=stepPlayer; stepPlayer=function(p){ _sp(p); try{ if(p&&!p.deco&&p.faceS!=null&&['bump','set','spike','toss','serve'].includes(p.state)) p.faceS=p.dir; }catch(e){} }; }
+</script>
 
 <script>
 'use strict';
