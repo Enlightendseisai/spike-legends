@@ -16178,13 +16178,15 @@ window.addEventListener('gamepadconnected',()=>{ if(!PAD36.loop){ PAD36.loop=1; 
 function landX37(b){ const t=tAtY(b,FLOOR-BALL_R); if(t==null) return {x:b.x,t:0}; return {x:b.x+b.vx*t+0.5*(b.ax||0)*t*t,t}; }
 function netClear37(b,d){ const dx=NET_X-b.x; if(dx*d<=0) return true; const ax=b.ax||0; let t; if(Math.abs(ax)<1e-3){ if(Math.abs(b.vx)<1) return false; t=dx/b.vx; } else { const D=b.vx*b.vx+2*ax*dx; if(D<0) return false; t=(-b.vx+Math.sign(b.vx||d)*Math.sqrt(D))/ax; if(!(t>0)) t=(-b.vx-Math.sign(b.vx||d)*Math.sqrt(D))/ax; }
   if(!(t>0)) return false; const g=bg(b), y=b.y+b.vy*t+0.5*g*t*t; return y<NET_TOP-BALL_R-4; }
-{ const _sb=stepBall; stepBall=function(){ _sb(); try{ const A=ball.atk36; if(!A||A.done||game.netGuest) return; if(!ball.live||ball.lastPlayer!==A.p||game.time-A.t>1.6){ A.done=true; return; } if(ball.held||ball.hover>0||Math.hypot(ball.vx,ball.vy)<1) return;
-    A.done=true; const d=A.p.dir; if(sideOf(ball.x)!==A.p.side) return;
-    if(ball.vx*d<0){ ball.vx=-ball.vx; game.fix36=(game.fix36||0)+1; }
-    if(ball.ax&&ball.ax*d<0) ball.ax*=0.25;
-    const L=landX37(ball); if(sideOf(L.x)===A.p.side||!netClear37(ball,d)){ const soft=/tip|feint|roll|poke|dump|rebound|cushion|behind|free|offspeed/i.test(A.k), tx=NET_X+d*(soft?rand(90,260):rand(300,560));
-      ball.ax=0; if(soft) launchOver(ball,tx,FLOOR-BALL_R,26); else { try{ aimSpike(ball,tx,FLOOR-BALL_R,Math.max(1100,Math.hypot(ball.vx,ball.vy)),1); }catch(e){ launchOver(ball,tx,FLOOR-BALL_R,20); } if(!netClear37(ball,d)) launchOver(ball,tx,FLOOR-BALL_R,18); }
-      game.fix36=(game.fix36||0)+1; } }catch(e){} }; }
+/* where will the ball land? (gravity, late drop, curve) */
+function simLand36(b){ let x=b.x, y=b.y, vx=b.vx, vy=b.vy; const g=GB*(b.gMul||1), dt=1/120; for(let i=0;i<480;i++){ vy+=g*dt; if(b.dropLate&&vy>0) vy+=g*(b.dropLate-1)*dt; if(b.ax) vx+=b.ax*dt; x+=vx*dt; y+=vy*dt; if(y+BALL_R>=FLOOR) return x; } return x; }
+{ const _sb=stepBall; stepBall=function(){ _sb(); try{ const A=ball.atk36; if(!A||A.done||game.netGuest) return; if(!ball.live||ball.lastPlayer!==A.p||game.time-A.t>1.6){ A.done=true; return; } if(ball.held||Math.hypot(ball.vx,ball.vy)<1) return;
+    A.done=true; const d=A.p.dir, own=A.p.side; let lx=simLand36(ball); if(sideOf(lx)!==own) return;
+    // it would land on the attacker's own court: take out any curve pulling it back, then make sure it carries over the net
+    if(ball.ax&&ball.ax*d<0) ball.ax=0; if(ball.vx*d<0) ball.vx=-ball.vx; lx=simLand36(ball);
+    for(let k=0;k<12&&sideOf(lx)===own;k++){ ball.vx=d*Math.max(Math.abs(ball.vx)*1.18,260); lx=simLand36(ball); }
+    if(sideOf(lx)===own){ ball.x=NET_X-d*(BALL_R+10); ball.vx=d*300; lx=simLand36(ball); }
+    game.fix36=(game.fix36||0)+1; }catch(e){} }; }
 </script>
 <script>
 'use strict';
