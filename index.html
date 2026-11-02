@@ -16510,6 +16510,42 @@ const RT37={on:false,busy:false};
 /* ---------- always face the net on contact ---------- */
 { const _sp=stepPlayer; stepPlayer=function(p){ _sp(p); try{ if(p&&!p.deco&&p.faceS!=null&&['bump','set','spike','toss','serve'].includes(p.state)) p.faceS=p.dir; }catch(e){} }; }
 </script>
+<script>
+'use strict';
+/* =========================================================================
+   v41 — fixes found by actually playing (real-time, human side driven by input)
+   1. SHANKS: a missed receive shot the ball hard BACKWARDS out of the
+      receiver's own court 60% of the time (looked like players hitting the
+      ball into their own side). A shank now pops up / sideways and stays
+      playable, like a real shank.
+   2. Your own receives failed far too often (stacked penalties). The player
+      you control now gets a fair receive when they are in position.
+   3. Dropped serve toss: after a re-toss the 8-second serve clock was not
+      reset, so you instantly lost the point.
+   4. Net touch: you were called for net touches just for jumping to a set
+      near the net. Now it is only called when you really run into it.
+   5. Your spikes were blocked about 70% of the time. Blocks against the
+      player you control are now fairer.
+   ========================================================================= */
+/* 1 + 2: receive */
+{ const _dq=digQuality; digQuality=function(p,z){ let q=_dq.apply(this,arguments); try{ if(q<1&&p&&p===game.human&&ball.lastSide!==p.side){ const zz=z==='over'?p.overZone():p.bumpZone(), off=Math.min(1,Math.hypot(ball.x-zz.x,ball.y-zz.y)/(zz.r+BALL_R)); if(off<0.75) q=Math.max(q,0.62-off*0.2); else q=Math.max(q,0.35); } }catch(e){} return q; }; }
+{ const _dd=doDig; doDig=function(p,z){ const pre=ball.vx; _dd.apply(this,arguments); try{ if(!p||ball.lastPlayer!==p||!ball.live) return; const d=p.dir;
+    // a touch that would fly out behind our own end line: turn it into a pop-up near the receiver
+    let x=ball.x, y=ball.y, vx=ball.vx, vy=ball.vy; for(let i=0;i<480;i++){ vy+=GB*(ball.gMul||1)/120; x+=vx/120; y+=vy/120; if(y+BALL_R>=FLOOR) break; }
+    const behind=p.side==='L'?x<COURT_L+10:x>COURT_R-10;
+    if(behind&&vx*d<0){ ball.vx=d*rand(60,240); ball.vy=-rand(520,700)*VS; ball.noRescue=false; } }catch(e){} }; }
+/* 3: re-toss resets the serve clock */
+{ const _sb=stepBall; stepBall=function(){ const was=ball.serveToss, s=game.server; _sb(); try{ if(was&&!ball.serveToss&&game.state==='SERVE'&&s&&ball.held===s&&!s.tossed) game.phaseT=Math.min(game.phaseT,2.5); }catch(e){} }; }
+/* 4: net touch only when you really run into the net */
+{ const _ss=simStep; simStep=function(){ const h=game.human; let save=null; try{ if(h&&game.state==='RALLY'&&!h.onGround&&!h._ntChk){ const d=Math.abs(h.x-NET_X), toNet=Math.sign(NET_X-h.x), push=(h.wantVx||h.vx||0)*toNet; if(d<=26&&!(d<=14&&push>380)){ save=true; h._ntChk=true; } } }catch(e){} _ss(); try{ if(save&&h&&h.onGround) h._ntChk=false; }catch(e){} }; }
+{ const _jp=jump; jump=function(p){ _jp.apply(this,arguments); try{ if(p===game.human) p._ntChk=false; }catch(e){} }; }
+/* 4b: the player you control stops at the net instead of drifting into it (net touch / center line) */
+{ const _sp=stepPlayer; stepPlayer=function(p){ _sp(p); try{ if(p&&p===game.human&&game.state==='RALLY'){ const lim=NET_X-p.dir*30; if((p.x-lim)*p.dir>0){ p.x=lim; if(p.vx*p.dir>0) p.vx=0; } } }catch(e){} }; }
+/* 6: libero rules only make sense in 6v6 — in 2v2/3v3 a "libero" is just a player */
+{ const _rf=ruleFault; ruleFault=function(p,code){ try{ if(/^LIB/.test(code)&&p&&team(p.side).players.length<6) return false; }catch(e){} return _rf.apply(this,arguments); }; }
+/* 5: fairer blocks against your spikes */
+{ const _bc=blockCheck; blockCheck=function(){ const A=ball.attacker||ball.lastPlayer, me=A&&A===game.human&&!ball.blockChecked; if(me) A.M.antiblk=(A.M.antiblk||0)+0.16; try{ return _bc.apply(this,arguments); } finally{ if(me) A.M.antiblk-=0.16; } }; }
+</script>
 
 <script>
 'use strict';
